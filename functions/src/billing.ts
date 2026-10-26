@@ -323,7 +323,7 @@ export const processWithdrawal = callable(async (request, uid) => {
   return { status: String(fresh.data()?.status ?? "succeeded"), refundState: String(fresh.data()?.refundState ?? "submitted") };
 });
 
-export const mollieWebhook = onRequest({ region: "europe-west1", cors: false }, async (request, response) => {
+export const mollieWebhook = onRequest({ region: "europe-west1", cors: false, memory: "256MiB", cpu: 0.167, maxInstances: 1 }, async (request, response) => {
   if (request.method !== "POST") {
     response.status(405).send("Méthode refusée");
     return;

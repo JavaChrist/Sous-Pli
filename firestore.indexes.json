@@ -47,34 +47,6 @@
         { "fieldPath": "uid", "order": "ASCENDING" },
         { "fieldPath": "status", "order": "ASCENDING" }
       ]
-    },
-    {
-      "collectionGroup": "audit",
-      "queryScope": "COLLECTION_GROUP",
-      "fields": [
-        { "fieldPath": "at", "order": "ASCENDING" }
-      ]
-    },
-    {
-      "collectionGroup": "assignments",
-      "queryScope": "COLLECTION_GROUP",
-      "fields": [
-        { "fieldPath": "eventId", "order": "ASCENDING" }
-      ]
-    },
-    {
-      "collectionGroup": "threads",
-      "queryScope": "COLLECTION_GROUP",
-      "fields": [
-        { "fieldPath": "eventId", "order": "ASCENDING" }
-      ]
-    },
-    {
-      "collectionGroup": "notifications",
-      "queryScope": "COLLECTION_GROUP",
-      "fields": [
-        { "fieldPath": "eventId", "order": "ASCENDING" }
-      ]
     }
   ],
   "fieldOverrides": []

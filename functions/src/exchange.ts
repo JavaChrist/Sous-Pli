@@ -98,7 +98,7 @@ export const sendMessage = callable(async (request, uid) => {
   const giverUid = String(server.data()?.giverUid ?? "");
   const recipientUid = String(server.data()?.recipientUid ?? "");
   const otherUid = uid === giverUid ? recipientUid : uid === recipientUid ? giverUid : "";
-  if (!otherUid) throw new HttpsError("failed-precondition", "L'autre personne n'a pas encore rejoint l'échange.");
+  if (!otherUid) throw new HttpsError("failed-precondition", "L'autre personne n'a pas encore rejoint l'échange. Le message pourra partir quand elle aura accepté son invitation.");
   const messageId = newId();
   const createdAt = stamp();
   await db.collection("users").doc(uid).collection("threads").doc(input.data.threadId).collection("messages").doc(messageId).set({

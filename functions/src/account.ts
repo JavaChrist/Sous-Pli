@@ -128,11 +128,11 @@ export const listCapturedMail = callable(async (request, uid) => {
   };
 });
 
-export const mailWorker = onSchedule({ schedule: "every 15 minutes", region: "europe-west1", timeZone: "Europe/Paris" }, async () => {
+export const mailWorker = onSchedule({ schedule: "every 15 minutes", region: "europe-west1", timeZone: "Europe/Paris", memory: "256MiB", cpu: 0.167, maxInstances: 1 }, async () => {
   await processDueMail(30);
 });
 
-export const reminderWorker = onSchedule({ schedule: "every day 08:00", region: "europe-west1", timeZone: "Europe/Paris" }, async () => {
+export const reminderWorker = onSchedule({ schedule: "every day 08:00", region: "europe-west1", timeZone: "Europe/Paris", memory: "256MiB", cpu: 0.167, maxInstances: 1 }, async () => {
   await queueEligibleReminders();
   const events = await db.collection("events").where("status", "==", "drawn").limit(40).get();
   for (const event of events.docs) {

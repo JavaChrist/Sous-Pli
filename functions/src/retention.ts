@@ -16,7 +16,7 @@ import { queueEmail } from "./mail";
 
 const PAGE = 20;
 
-export const retentionWorker = onSchedule({ schedule: "every day 09:15", region: "europe-west1", timeZone: "Europe/Paris" }, async () => {
+export const retentionWorker = onSchedule({ schedule: "every day 09:15", region: "europe-west1", timeZone: "Europe/Paris", memory: "256MiB", cpu: 0.167, maxInstances: 1 }, async () => {
   await runRetention(process.env.RETENTION_APPLY === "true");
 });
 

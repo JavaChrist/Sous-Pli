@@ -1,4 +1,5 @@
 import { appConfig } from "../config";
+import { publisher } from "../publisher";
 import {
   PALETTES,
   TEMPLATE_VERSION,
@@ -169,30 +170,35 @@ function layout(input: {
   link: string;
 }): string {
   const colors = PALETTES[input.theme.palette];
-  const logo = safeLogo(input.theme.logoUrl);
-  const logoBlock = logo
-    ? `<img src="${escapeHtml(logo)}" alt="${escapeHtml(input.theme.organizationName || appConfig.name)}" width="96" style="display:block;border:0;border-radius:12px;margin-bottom:16px;" />`
-    : `<p style="margin:0 0 12px;font-family:Georgia,serif;font-size:22px;color:${colors.primary};">${escapeHtml(input.theme.organizationName || appConfig.name)}</p>`;
+  const brand = safeLogo(input.theme.logoUrl);
+  const title = escapeHtml(input.theme.organizationName || appConfig.name);
+  const logoBlock = `<img src="${escapeHtml(appLogoUrl())}" alt="${escapeHtml(appConfig.name)}" width="72" height="72" style="display:block;width:72px;height:72px;border:0;border-radius:16px;margin:0 0 16px;" />
+${brand ? `<img src="${escapeHtml(brand)}" alt="${title}" width="72" height="72" style="display:block;width:72px;height:72px;border:0;border-radius:16px;margin:0 0 16px;" />` : ""}
+<p style="margin:0 0 8px;font-family:Georgia,serif;font-size:28px;line-height:1.2;color:${colors.primary};">${title}</p>`;
   const body = input.paragraphs
     .map(
       (paragraph) =>
-        `<p style="margin:0 0 14px;font-family:Arial,sans-serif;font-size:16px;line-height:1.5;color:${colors.text};">${escapeHtml(paragraph).replaceAll("\n", "<br />")}</p>`,
+        `<p style="margin:0 0 16px;font-family:Arial,sans-serif;font-size:16px;line-height:1.6;color:${colors.text};">${escapeHtml(paragraph).replaceAll("\n", "<br />")}</p>`,
     )
     .join("");
   const href = escapeHtml(input.link);
   return `<!DOCTYPE html><html lang="fr"><body style="margin:0;padding:0;background:${colors.background};">
 <div style="display:none;max-height:0;overflow:hidden;">${escapeHtml(input.preheader)}</div>
-<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:${colors.background};padding:24px 12px;"><tr><td align="center">
-<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:560px;background:#fffdf8;border:1px solid #e6dccb;border-radius:18px;padding:28px 24px;">
-<tr><td>${logoBlock}
-<p style="margin:0 0 18px;font-family:Arial,sans-serif;font-size:12px;letter-spacing:0.08em;text-transform:uppercase;color:${colors.accent};">${escapeHtml(contextLine(input.theme))}</p>
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:${colors.background};"><tr><td align="center" style="padding:32px 20px;">
+<table role="presentation" width="560" cellpadding="0" cellspacing="0" style="width:100%;max-width:560px;background:#fffdf8;border:1px solid #d9cbb6;border-radius:18px;border-collapse:separate;">
+<tr><td style="padding:40px 36px;">${logoBlock}
+<p style="margin:0 0 22px;font-family:Arial,sans-serif;font-size:12px;letter-spacing:0.08em;text-transform:uppercase;color:${colors.accent};">${escapeHtml(contextLine(input.theme))}</p>
 ${body}
-<table role="presentation" cellpadding="0" cellspacing="0" style="margin:8px 0 12px;"><tr><td style="background:${colors.primary};border-radius:999px;">
-<a href="${href}" style="display:inline-block;padding:12px 22px;color:#ffffff;text-decoration:none;font-family:Arial,sans-serif;font-size:15px;">${escapeHtml(input.button)}</a>
+<table role="presentation" cellpadding="0" cellspacing="0" style="margin:8px 0 18px;"><tr><td style="background:${colors.primary};border-radius:999px;">
+<a href="${href}" style="display:inline-block;padding:14px 24px;color:#ffffff;text-decoration:none;font-family:Arial,sans-serif;font-size:15px;line-height:1.2;">${escapeHtml(input.button)}</a>
 </td></tr></table>
-<p style="margin:0 0 18px;font-family:Arial,sans-serif;font-size:13px;line-height:1.4;color:#5c564e;">Si le bouton ne s'affiche pas : <a href="${href}" style="color:${colors.primary};">${href}</a></p>
-<p style="margin:0;font-family:Arial,sans-serif;font-size:12px;line-height:1.45;color:#5c564e;">${escapeHtml(footerText())}</p>
+<p style="margin:0 0 22px;font-family:Arial,sans-serif;font-size:13px;line-height:1.5;color:#5c564e;">Si le bouton ne s'affiche pas : <a href="${href}" style="color:${colors.primary};">${href}</a></p>
+<p style="margin:0;font-family:Arial,sans-serif;font-size:12px;line-height:1.55;color:#5c564e;">${escapeHtml(footerText())}</p>
 </td></tr></table></td></tr></table></body></html>`;
+}
+
+function appLogoUrl(): string {
+  return `${publisher.publicUrl}/logo512.png`;
 }
 
 function safeLogo(url: string): string {

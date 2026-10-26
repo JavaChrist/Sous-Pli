@@ -30,7 +30,8 @@ export function callable<T>(
       cors: true,
       timeoutSeconds: options?.timeoutSeconds ?? 60,
       memory: options?.memory ?? "256MiB",
-      maxInstances: 10,
+      cpu: 0.167,
+      maxInstances: 1,
     },
     async (request) => {
       const uid = request.auth?.uid ?? "";

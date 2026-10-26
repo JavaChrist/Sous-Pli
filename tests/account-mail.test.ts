@@ -10,6 +10,8 @@ describe("e-mails de compte et d'offre", () => {
   it("affiche une identité neutre pour les messages de service", () => {
     const rendered = renderEmail(serviceTheme(), "password_reset", PREVIEW_VARS);
     expect(rendered.html).toContain("Sous pli");
+    expect(rendered.html).toContain("https://souspli.fr/logo512.png");
+    expect(rendered.html).toContain("padding:40px 36px");
     expect(rendered.html).not.toContain("Échange en famille");
     expect(rendered.html).not.toContain("#F4EFE6");
     expect(rendered.subject).not.toMatch(/\{\{/);

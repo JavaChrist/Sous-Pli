@@ -27,8 +27,7 @@ export function ErrorState({ children, onRetry }: { children: ReactNode; onRetry
       <div className="flex items-start gap-3">
         <AlertTriangle className="mt-0.5 h-5 w-5 text-burgundy" />
         <div className="text-sm">
-          <p className="font-semibold">La lecture a échoué</p>
-          <p className="mt-1 text-muted">{children}</p>
+          <p className="font-semibold">{children}</p>
           {onRetry ? (
             <button className="mt-3 font-semibold text-pine" onClick={onRetry} type="button">
               Réessayer
