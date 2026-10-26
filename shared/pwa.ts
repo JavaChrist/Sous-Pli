@@ -4,7 +4,7 @@ export const PWA_LATER_SNOOZE_MS = 6 * 60 * 60 * 1000;
 export interface UpdateOfferInput {
   now: number;
   snoozeUntil: number | null;
-  waitingWorker: boolean;
+  pageVersion: string;
   remoteVersion: string | null;
   acknowledgedVersion: string | null;
   checkFailed: boolean;
@@ -12,10 +12,16 @@ export interface UpdateOfferInput {
   dialogAlreadyOpen: boolean;
 }
 
-/** N'annonce une mise à jour que si un nouveau worker attend vraiment. */
+/** Vrai quand le déploiement servi n'est plus celui de la page ouverte. */
+export function isNewerDeployment(pageVersion: string, remoteVersion: string | null): boolean {
+  if (!remoteVersion || remoteVersion === "dev" || pageVersion === "dev") return false;
+  return remoteVersion !== pageVersion;
+}
+
+/** Annonce une mise à jour après un nouveau commit déployé, jamais pendant une saisie. */
 export function shouldOfferUpdate(input: UpdateOfferInput): boolean {
   if (input.checkFailed || input.sensitiveLocked || input.dialogAlreadyOpen) return false;
-  if (!input.waitingWorker || !input.remoteVersion) return false;
+  if (!isNewerDeployment(input.pageVersion, input.remoteVersion)) return false;
   if (input.remoteVersion === input.acknowledgedVersion) return false;
   if (input.snoozeUntil !== null && input.now < input.snoozeUntil) return false;
   return true;

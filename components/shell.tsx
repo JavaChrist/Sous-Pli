@@ -17,7 +17,7 @@ const items = [
   { href: "/profil", label: "Profil", icon: UserRound },
 ];
 
-export function Shell({ children }: { children: ReactNode }) {
+export function Shell({ children, deploymentVersion }: { children: ReactNode; deploymentVersion: string }) {
   const pathname = usePathname();
   const { user } = useAuth();
   const logged = Boolean(user);
@@ -106,7 +106,7 @@ export function Shell({ children }: { children: ReactNode }) {
           </ul>
         </nav>
       ) : null}
-      <UpdateManager />
+      <UpdateManager pageVersion={deploymentVersion} />
       <InstallPrompt />
     </div>
   );

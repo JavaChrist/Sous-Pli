@@ -59,14 +59,6 @@ export function HomePage() {
         <h2 className="mt-3 font-serif text-3xl">Le résultat se consulte sous pli</h2>
         <p className="mt-2 max-w-2xl text-white/80">Aucun nom tiré au sort dans les e-mails, les aperçus de liens ou les notifications. La révélation collective attend votre geste, à l'heure prévue dans le fuseau de l'échange.</p>
       </section>
-      <footer className="flex flex-wrap gap-4 border-t border-line pt-6 text-sm text-muted">
-        <Link href="/aide">Aide</Link>
-        <Link href="/contact">Contact</Link>
-        <Link href="/tarifs">Tarifs</Link>
-        <Link href="/confidentialite">Confidentialité</Link>
-        <Link href="/conditions">Conditions</Link>
-        <Link href="/mentions">Mentions</Link>
-      </footer>
     </div>
   );
 }

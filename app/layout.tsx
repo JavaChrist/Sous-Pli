@@ -38,7 +38,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="fr" data-scroll-behavior="smooth">
       <body className={`${outfit.variable} ${fraunces.variable} font-sans antialiased`}>
         <Providers>
-          <Shell>{children}</Shell>
+          <Shell deploymentVersion={process.env.VERCEL_GIT_COMMIT_SHA ?? "dev"}>{children}</Shell>
         </Providers>
       </body>
     </html>

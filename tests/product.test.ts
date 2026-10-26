@@ -112,19 +112,21 @@ describe("import et mise à jour", () => {
     expect(sanitizeSpreadsheetCell("Lou")).toBe("Lou");
   });
 
-  it("n'ouvre la modale que pour un worker en attente, et respecte Plus tard", () => {
+  it("ouvre la modale quand le commit déployé a changé, et respecte Plus tard", () => {
     const base = {
       now: 10_000,
       snoozeUntil: null,
-      waitingWorker: true,
-      remoteVersion: "2",
-      acknowledgedVersion: "1",
+      pageVersion: "ancien-commit",
+      remoteVersion: "nouveau-commit",
+      acknowledgedVersion: "ancien-commit",
       checkFailed: false,
       sensitiveLocked: false,
       dialogAlreadyOpen: false,
     };
     expect(shouldOfferUpdate(base)).toBe(true);
-    expect(shouldOfferUpdate({ ...base, waitingWorker: false })).toBe(false);
+    expect(shouldOfferUpdate({ ...base, pageVersion: "dev", remoteVersion: "nouveau-commit" })).toBe(false);
+    expect(shouldOfferUpdate({ ...base, remoteVersion: "dev" })).toBe(false);
+    expect(shouldOfferUpdate({ ...base, remoteVersion: "ancien-commit" })).toBe(false);
     expect(shouldOfferUpdate({ ...base, checkFailed: true })).toBe(false);
     expect(shouldOfferUpdate({ ...base, remoteVersion: null })).toBe(false);
     expect(shouldOfferUpdate({ ...base, snoozeUntil: base.now + PWA_LATER_SNOOZE_MS })).toBe(false);

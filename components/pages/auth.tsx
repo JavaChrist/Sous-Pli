@@ -75,15 +75,15 @@ export function AuthScreen({ mode }: { mode: "login" | "signup" | "reset" }) {
       <h1 className="font-serif text-4xl text-pine-deep">{title}</h1>
       <form className="space-y-4 rounded-3xl border border-line bg-card p-5" onSubmit={form.handleSubmit(onSubmit)}>
         {mode === "signup" ? (
-          <Field label="Nom affiché" error={form.formState.errors.name?.message}>
+          <Field className="gap-4" label="Nom affiché" error={form.formState.errors.name?.message}>
             <TextInput {...form.register("name")} autoComplete="name" />
           </Field>
         ) : null}
-        <Field label="E-mail" error={form.formState.errors.email?.message}>
+        <Field className="gap-4" label="E-mail" error={form.formState.errors.email?.message}>
           <TextInput type="email" autoComplete="email" {...form.register("email")} />
         </Field>
         {mode !== "reset" ? (
-          <Field label="Mot de passe" error={form.formState.errors.password?.message}>
+          <Field className="gap-4" label="Mot de passe" error={form.formState.errors.password?.message}>
             <TextInput type="password" autoComplete={mode === "signup" ? "new-password" : "current-password"} {...form.register("password")} onFocus={() => setLocked(true)} onBlur={() => setLocked(false)} />
           </Field>
         ) : null}

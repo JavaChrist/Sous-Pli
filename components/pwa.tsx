@@ -1,8 +1,7 @@
 "use client";
 
-import { BUILD_VERSION } from "@shared/build-version";
-import { PWA_LATER_SNOOZE_MS, shouldOfferUpdate, shouldPollVersion } from "@shared/pwa";
-import { useEffect, useState } from "react";
+import { PWA_CHECK_INTERVAL_MS, PWA_LATER_SNOOZE_MS, shouldOfferUpdate, shouldPollVersion } from "@shared/pwa";
+import { useEffect, useRef, useState } from "react";
 import { useConfirm, useSensitive } from "./providers";
 import { Button } from "./ui/button";
 import { Modal } from "./ui/modal";
@@ -12,58 +11,86 @@ const ACK_KEY = "souspli.pwa.lastAcknowledgedAppVersion";
 const SESSION_KEY = "souspli.pwa.dismissedSession";
 const ACCEPT_KEY = "souspli.pwa.updateAccepted";
 
-export function UpdateManager() {
+export function UpdateManager({ pageVersion }: { pageVersion: string }) {
   const { locked } = useSensitive();
   const confirm = useConfirm();
   const [open, setOpen] = useState(false);
   const [remote, setRemote] = useState<string | null>(null);
+  const [checkFailed, setCheckFailed] = useState(false);
   const [waiting, setWaiting] = useState<ServiceWorker | null>(null);
   const [busy, setBusy] = useState(false);
+  const registrationRef = useRef<ServiceWorkerRegistration | null>(null);
 
   useEffect(() => {
-    if (typeof window === "undefined" || !("serviceWorker" in navigator)) return;
-    const enabled = process.env.NODE_ENV === "production" || process.env.NEXT_PUBLIC_ENABLE_SW === "true";
-    if (!enabled) return;
-    let registration: ServiceWorkerRegistration | null = null;
+    if (pageVersion === "dev" || typeof window === "undefined") return;
     let timer = 0;
     let lastCheck = 0;
     let inFlight = false;
-    const hadController = Boolean(navigator.serviceWorker.controller);
-
-    navigator.serviceWorker.addEventListener("controllerchange", () => {
-      if (!hadController) return;
-      if (sessionStorage.getItem(ACCEPT_KEY) !== "1") return;
-      if (sessionStorage.getItem("souspli.pwa.reloaded") === "1") return;
-      sessionStorage.setItem("souspli.pwa.reloaded", "1");
-      window.location.reload();
-    });
-
-    const track = () => {
-      const worker = registration?.waiting;
-      if (worker) setWaiting(worker);
-    };
+    let cancelled = false;
 
     const check = async () => {
-      if (!registration) return;
-      if (!shouldPollVersion(document.visibilityState === "visible", lastCheck, Date.now(), inFlight) && lastCheck !== 0) return;
+      const visible = document.visibilityState === "visible";
+      if (!visible) return;
+      if (!shouldPollVersion(visible, lastCheck, Date.now(), inFlight) && lastCheck !== 0) return;
       inFlight = true;
       lastCheck = Date.now();
       try {
         const response = await fetch("/api/version", { cache: "no-store" });
         if (!response.ok) throw new Error("version");
         const payload = (await response.json()) as { version?: string };
+        if (cancelled) return;
         setRemote(payload.version ?? null);
-        if (payload.version && payload.version !== BUILD_VERSION) await registration.update();
-        track();
+        setCheckFailed(false);
+        if (payload.version && payload.version !== pageVersion) await registrationRef.current?.update();
       } catch {
-        setRemote(null);
+        if (!cancelled) {
+          setRemote(null);
+          setCheckFailed(true);
+        }
       } finally {
         inFlight = false;
       }
     };
 
+    const onReturn = () => {
+      lastCheck = 0;
+      void check();
+    };
+    timer = window.setInterval(() => void check(), PWA_CHECK_INTERVAL_MS);
+    document.addEventListener("visibilitychange", onReturn);
+    window.addEventListener("focus", onReturn);
+    window.addEventListener("pageshow", onReturn);
+    void check();
+    return () => {
+      cancelled = true;
+      window.clearInterval(timer);
+      document.removeEventListener("visibilitychange", onReturn);
+      window.removeEventListener("focus", onReturn);
+      window.removeEventListener("pageshow", onReturn);
+    };
+  }, [pageVersion]);
+
+  useEffect(() => {
+    if (typeof window === "undefined" || !("serviceWorker" in navigator)) return;
+    const enabled = process.env.NODE_ENV === "production" || process.env.NEXT_PUBLIC_ENABLE_SW === "true";
+    if (!enabled) return;
+    const hadController = Boolean(navigator.serviceWorker.controller);
+
+    const onControllerChange = () => {
+      if (!hadController) return;
+      if (sessionStorage.getItem(ACCEPT_KEY) !== "1") return;
+      if (sessionStorage.getItem("souspli.pwa.reloaded") === "1") return;
+      sessionStorage.setItem("souspli.pwa.reloaded", "1");
+      window.location.reload();
+    };
+    navigator.serviceWorker.addEventListener("controllerchange", onControllerChange);
+
+    const track = () => {
+      const worker = registrationRef.current?.waiting;
+      if (worker) setWaiting(worker);
+    };
     void navigator.serviceWorker.register("/sw.js").then((next) => {
-      registration = next;
+      registrationRef.current = next;
       track();
       next.addEventListener("updatefound", () => {
         const installing = next.installing;
@@ -72,18 +99,8 @@ export function UpdateManager() {
           if (installing.state === "installed" && !navigator.serviceWorker.controller) installing.postMessage({ type: "SKIP_WAITING" });
         });
       });
-      void check();
-      timer = window.setInterval(() => void check(), 15_000);
     });
-
-    const onVisible = () => void check();
-    document.addEventListener("visibilitychange", onVisible);
-    window.addEventListener("focus", onVisible);
-    return () => {
-      window.clearInterval(timer);
-      document.removeEventListener("visibilitychange", onVisible);
-      window.removeEventListener("focus", onVisible);
-    };
+    return () => navigator.serviceWorker.removeEventListener("controllerchange", onControllerChange);
   }, []);
 
   useEffect(() => {
@@ -91,18 +108,18 @@ export function UpdateManager() {
     const offer = shouldOfferUpdate({
       now: Date.now(),
       snoozeUntil: snooze,
-      waitingWorker: Boolean(waiting),
+      pageVersion,
       remoteVersion: remote,
       acknowledgedVersion: localStorage.getItem(ACK_KEY),
-      checkFailed: remote === null && Boolean(waiting) === false ? false : remote === null,
+      checkFailed,
       sensitiveLocked: locked,
       dialogAlreadyOpen: Boolean(document.querySelector("[role='dialog']")),
     });
     if (offer && sessionStorage.getItem(SESSION_KEY) !== "1") setOpen(true);
-  }, [waiting, remote, locked]);
+  }, [pageVersion, remote, locked, checkFailed]);
 
   async function updateNow() {
-    if (!waiting || !remote) return;
+    if (locked || !remote || remote === pageVersion) return;
     const dirty = document.querySelector("form[data-dirty='true']");
     if (dirty) {
       const accepted = await confirm({
@@ -115,7 +132,12 @@ export function UpdateManager() {
     setBusy(true);
     localStorage.setItem(ACK_KEY, remote);
     sessionStorage.setItem(ACCEPT_KEY, "1");
-    waiting.postMessage({ type: "SKIP_WAITING" });
+    if (waiting) {
+      waiting.postMessage({ type: "SKIP_WAITING" });
+      window.setTimeout(() => window.location.reload(), 1500);
+      return;
+    }
+    window.location.reload();
   }
 
   return (

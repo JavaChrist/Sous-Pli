@@ -1,9 +1,9 @@
 import { cn } from "@/lib/cn";
 import type { InputHTMLAttributes, ReactNode, SelectHTMLAttributes, TextareaHTMLAttributes } from "react";
 
-export function Field({ label, hint, error, children }: { label: string; hint?: string; error?: string; children: ReactNode }) {
+export function Field({ label, hint, error, children, className }: { label: string; hint?: string; error?: string; children: ReactNode; className?: string }) {
   return (
-    <label className="block space-y-1.5 text-sm">
+    <label className={cn("flex flex-col gap-1.5 text-sm", className)}>
       <span className="font-medium text-ink">{label}</span>
       {children}
       {hint ? <span className="block text-xs text-muted">{hint}</span> : null}
