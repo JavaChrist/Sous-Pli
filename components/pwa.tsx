@@ -1,0 +1,202 @@
+"use client";
+
+import { BUILD_VERSION } from "@shared/build-version";
+import { PWA_LATER_SNOOZE_MS, shouldOfferUpdate, shouldPollVersion } from "@shared/pwa";
+import { useEffect, useState } from "react";
+import { useConfirm, useSensitive } from "./providers";
+import { Button } from "./ui/button";
+import { Modal } from "./ui/modal";
+
+const SNOOZE_KEY = "souspli.pwa.snoozeUntil";
+const ACK_KEY = "souspli.pwa.lastAcknowledgedAppVersion";
+const SESSION_KEY = "souspli.pwa.dismissedSession";
+const ACCEPT_KEY = "souspli.pwa.updateAccepted";
+
+export function UpdateManager() {
+  const { locked } = useSensitive();
+  const confirm = useConfirm();
+  const [open, setOpen] = useState(false);
+  const [remote, setRemote] = useState<string | null>(null);
+  const [waiting, setWaiting] = useState<ServiceWorker | null>(null);
+  const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    if (typeof window === "undefined" || !("serviceWorker" in navigator)) return;
+    const enabled = process.env.NODE_ENV === "production" || process.env.NEXT_PUBLIC_ENABLE_SW === "true";
+    if (!enabled) return;
+    let registration: ServiceWorkerRegistration | null = null;
+    let timer = 0;
+    let lastCheck = 0;
+    let inFlight = false;
+    const hadController = Boolean(navigator.serviceWorker.controller);
+
+    navigator.serviceWorker.addEventListener("controllerchange", () => {
+      if (!hadController) return;
+      if (sessionStorage.getItem(ACCEPT_KEY) !== "1") return;
+      if (sessionStorage.getItem("souspli.pwa.reloaded") === "1") return;
+      sessionStorage.setItem("souspli.pwa.reloaded", "1");
+      window.location.reload();
+    });
+
+    const track = () => {
+      const worker = registration?.waiting;
+      if (worker) setWaiting(worker);
+    };
+
+    const check = async () => {
+      if (!registration) return;
+      if (!shouldPollVersion(document.visibilityState === "visible", lastCheck, Date.now(), inFlight) && lastCheck !== 0) return;
+      inFlight = true;
+      lastCheck = Date.now();
+      try {
+        const response = await fetch("/api/version", { cache: "no-store" });
+        if (!response.ok) throw new Error("version");
+        const payload = (await response.json()) as { version?: string };
+        setRemote(payload.version ?? null);
+        if (payload.version && payload.version !== BUILD_VERSION) await registration.update();
+        track();
+      } catch {
+        setRemote(null);
+      } finally {
+        inFlight = false;
+      }
+    };
+
+    void navigator.serviceWorker.register("/sw.js").then((next) => {
+      registration = next;
+      track();
+      next.addEventListener("updatefound", () => {
+        const installing = next.installing;
+        installing?.addEventListener("statechange", () => {
+          if (installing.state === "installed" && navigator.serviceWorker.controller) track();
+          if (installing.state === "installed" && !navigator.serviceWorker.controller) installing.postMessage({ type: "SKIP_WAITING" });
+        });
+      });
+      void check();
+      timer = window.setInterval(() => void check(), 15_000);
+    });
+
+    const onVisible = () => void check();
+    document.addEventListener("visibilitychange", onVisible);
+    window.addEventListener("focus", onVisible);
+    return () => {
+      window.clearInterval(timer);
+      document.removeEventListener("visibilitychange", onVisible);
+      window.removeEventListener("focus", onVisible);
+    };
+  }, []);
+
+  useEffect(() => {
+    const snooze = Number(localStorage.getItem(SNOOZE_KEY) || 0) || null;
+    const offer = shouldOfferUpdate({
+      now: Date.now(),
+      snoozeUntil: snooze,
+      waitingWorker: Boolean(waiting),
+      remoteVersion: remote,
+      acknowledgedVersion: localStorage.getItem(ACK_KEY),
+      checkFailed: remote === null && Boolean(waiting) === false ? false : remote === null,
+      sensitiveLocked: locked,
+      dialogAlreadyOpen: Boolean(document.querySelector("[role='dialog']")),
+    });
+    if (offer && sessionStorage.getItem(SESSION_KEY) !== "1") setOpen(true);
+  }, [waiting, remote, locked]);
+
+  async function updateNow() {
+    if (!waiting || !remote) return;
+    const dirty = document.querySelector("form[data-dirty='true']");
+    if (dirty) {
+      const accepted = await confirm({
+        title: "Mettre à jour maintenant ?",
+        description: "Le brouillon local est conservé. Une saisie non enregistrée sur le serveur peut être perdue.",
+        confirmLabel: "Mettre à jour",
+      });
+      if (!accepted) return;
+    }
+    setBusy(true);
+    localStorage.setItem(ACK_KEY, remote);
+    sessionStorage.setItem(ACCEPT_KEY, "1");
+    waiting.postMessage({ type: "SKIP_WAITING" });
+  }
+
+  return (
+    <Modal
+      open={open}
+      busy={busy}
+      onOpenChange={setOpen}
+      title="Une nouvelle version est disponible"
+      description="Vous pouvez l'appliquer maintenant. Rien n'est rechargé pendant une saisie ou un tirage."
+    >
+      <div className="flex flex-wrap justify-end gap-2">
+        <Button
+          variant="secondary"
+          onClick={() => {
+            localStorage.setItem(SNOOZE_KEY, String(Date.now() + PWA_LATER_SNOOZE_MS));
+            sessionStorage.setItem(SESSION_KEY, "1");
+            setOpen(false);
+          }}
+        >
+          Plus tard
+        </Button>
+        <Button busy={busy} onClick={() => void updateNow()}>
+          Mettre à jour
+        </Button>
+      </div>
+    </Modal>
+  );
+}
+
+export function InstallPrompt() {
+  const [open, setOpen] = useState(false);
+  const [ios, setIos] = useState(false);
+
+  useEffect(() => {
+    const dismissed = Number(localStorage.getItem("souspli.pwa.installDismissed") || 0);
+    if (dismissed > Date.now()) return;
+    const visits = Number(localStorage.getItem("souspli.pwa.visits") || 0) + 1;
+    localStorage.setItem("souspli.pwa.visits", String(visits));
+    const apple = /iPhone|iPad/.test(navigator.userAgent);
+    const standalone = window.matchMedia("(display-mode: standalone)").matches;
+    if (standalone || visits < 2) return;
+    setIos(apple);
+    const onPrompt = (event: Event) => {
+      event.preventDefault();
+      (window as Window & { souspliInstall?: Event }).souspliInstall = event;
+      setOpen(true);
+    };
+    window.addEventListener("beforeinstallprompt", onPrompt);
+    if (apple) setOpen(true);
+    return () => window.removeEventListener("beforeinstallprompt", onPrompt);
+  }, []);
+
+  return (
+    <Modal open={open} onOpenChange={setOpen} title="Installer Sous pli" description="L'application reste utilisable dans le navigateur. L'installation n'est pas obligatoire.">
+      {ios ? (
+        <p className="text-sm text-muted">Dans Safari, ouvrez le menu Partager, puis choisissez « Sur l'écran d'accueil ».</p>
+      ) : (
+        <p className="text-sm text-muted">Vous pouvez ajouter Sous pli à votre écran d'accueil pour le retrouver plus vite.</p>
+      )}
+      <div className="mt-4 flex flex-wrap justify-end gap-2">
+        <Button
+          variant="secondary"
+          onClick={() => {
+            localStorage.setItem("souspli.pwa.installDismissed", String(Date.now() + 14 * 86400000));
+            setOpen(false);
+          }}
+        >
+          Plus tard
+        </Button>
+        {!ios ? (
+          <Button
+            onClick={async () => {
+              const event = (window as Window & { souspliInstall?: { prompt: () => Promise<void> } }).souspliInstall;
+              await event?.prompt();
+              setOpen(false);
+            }}
+          >
+            Installer
+          </Button>
+        ) : null}
+      </div>
+    </Modal>
+  );
+}

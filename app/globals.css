@@ -1,0 +1,68 @@
+@import "tailwindcss";
+
+@theme inline {
+  --font-sans: var(--font-outfit), ui-sans-serif, system-ui, sans-serif;
+  --font-serif: var(--font-fraunces), ui-serif, Georgia, serif;
+  --color-cream: #f4efe6;
+  --color-cream-deep: #e7dccb;
+  --color-card: #fffdf8;
+  --color-ink: #1c1917;
+  --color-muted: #5c564e;
+  --color-line: #e4d7c4;
+  --color-pine: #1b4332;
+  --color-pine-deep: #10281f;
+  --color-burgundy: #7a2433;
+  --color-gold: #a6843d;
+  --color-danger: #8d2432;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  min-height: 100vh;
+  background:
+    radial-gradient(circle at top left, rgba(166, 132, 61, 0.16), transparent 28rem),
+    var(--color-cream);
+  color: var(--color-ink);
+}
+
+::selection {
+  background: #1b4332;
+  color: white;
+}
+
+:focus-visible {
+  outline: 2px solid #1b4332;
+  outline-offset: 3px;
+}
+
+select {
+  appearance: none;
+  -webkit-appearance: none;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%235c564e' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'><path d='M6 9l6 6 6-6'/></svg>");
+  background-repeat: no-repeat;
+  background-position: right 0.75rem center;
+  background-size: 0.7rem;
+  padding-right: 2rem;
+}
+
+.safe-top {
+  padding-top: env(safe-area-inset-top);
+}
+
+.safe-bottom {
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

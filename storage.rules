@@ -1,0 +1,46 @@
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+    function signedIn() {
+      return request.auth != null;
+    }
+    function eventDoc(eventId) {
+      return firestore.get(/databases/(default)/documents/events/$(eventId));
+    }
+    function isOrganizer(eventId) {
+      return signedIn()
+        && firestore.exists(/databases/(default)/documents/events/$(eventId))
+        && eventDoc(eventId).data.organizerUid == request.auth.uid;
+    }
+    function ownMember(eventId) {
+      let index = /databases/(default)/documents/events/$(eventId)/memberIndex/$(request.auth.uid);
+      return firestore.exists(index) ? firestore.get(index).data.memberId : "";
+    }
+    function imageOk() {
+      return request.resource.size < 2 * 1024 * 1024
+        && request.resource.contentType.matches('image/(jpeg|png|webp)');
+    }
+
+    match /events/{eventId}/brand/{fileName} {
+      allow read: if true;
+      allow write: if isOrganizer(eventId) && imageOk() && fileName.matches('[a-zA-Z0-9._-]{1,80}');
+    }
+
+    match /events/{eventId}/wishes/{memberId}/{fileName} {
+      allow read: if signedIn() && (
+        isOrganizer(eventId)
+        || ownMember(eventId) == memberId
+        || (
+          firestore.exists(/databases/(default)/documents/events/$(eventId)/wishAccess/$(request.auth.uid))
+          && memberId in firestore.get(/databases/(default)/documents/events/$(eventId)/wishAccess/$(request.auth.uid)).data.memberIds
+        )
+      );
+      allow create, update: if false;
+      allow delete: if signedIn() && (ownMember(eventId) == memberId || isOrganizer(eventId));
+    }
+
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+  }
+}

@@ -1,0 +1,171 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() {
+      return request.auth != null;
+    }
+    function isOwner(uid) {
+      return signedIn() && request.auth.uid == uid;
+    }
+    function eventPath(eventId) {
+      return /databases/$(database)/documents/events/$(eventId);
+    }
+    function eventData(eventId) {
+      return get(eventPath(eventId)).data;
+    }
+    function isOrganizer(eventId) {
+      return signedIn() && eventData(eventId).organizerUid == request.auth.uid;
+    }
+    function isCoOrganizer(eventId) {
+      return signedIn() && exists(/databases/$(database)/documents/events/$(eventId)/coOrganizers/$(request.auth.uid));
+    }
+    function canOperate(eventId) {
+      return isOrganizer(eventId) || isCoOrganizer(eventId);
+    }
+    function isMember(eventId) {
+      return signedIn() && exists(/databases/$(database)/documents/events/$(eventId)/memberIndex/$(request.auth.uid));
+    }
+
+    match /users/{uid} {
+      allow read: if isOwner(uid);
+      allow write: if false;
+
+      match /assignments/{assignmentId} {
+        allow read: if isOwner(uid);
+        allow write: if false;
+      }
+      match /inbox/{messageId} {
+        allow read: if isOwner(uid);
+        allow update: if isOwner(uid)
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['read']);
+        allow create, delete: if false;
+      }
+      match /threads/{threadId} {
+        allow read: if isOwner(uid);
+        allow update: if isOwner(uid)
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['unread']);
+        allow create, delete: if false;
+
+        match /messages/{messageId} {
+          allow read: if isOwner(uid);
+          allow write: if false;
+        }
+      }
+      match /notifications/{notificationId} {
+        allow read: if isOwner(uid);
+        allow update: if isOwner(uid)
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['read']);
+        allow create, delete: if false;
+      }
+      match /coEvents/{eventId} {
+        allow read: if isOwner(uid);
+        allow write: if false;
+      }
+      match /recipientWishes/{wishId} {
+        allow read: if isOwner(uid);
+        allow write: if false;
+      }
+    }
+
+    match /events/{eventId} {
+      allow get: if signedIn() && (
+        resource.data.organizerUid == request.auth.uid
+        || isMember(eventId)
+        || exists(/databases/$(database)/documents/events/$(eventId)/coOrganizers/$(request.auth.uid))
+      );
+      allow list: if signedIn() && resource.data.organizerUid == request.auth.uid;
+      allow create, update, delete: if false;
+
+      match /members/{memberId} {
+        allow read: if canOperate(eventId) || isMember(eventId);
+        allow write: if false;
+      }
+      match /memberPrivate/{memberId} {
+        allow read: if canOperate(eventId);
+        allow write: if false;
+      }
+      match /memberIndex/{uid} {
+        allow get: if isOwner(uid) || canOperate(eventId);
+        allow list: if canOperate(eventId) || (signedIn() && resource.data.uid == request.auth.uid);
+        allow write: if false;
+      }
+      match /constraints/{constraintId} {
+        allow read: if canOperate(eventId);
+        allow write: if false;
+      }
+      match /wishlists/{memberId} {
+        allow read: if isOrganizer(eventId) || (
+          isMember(eventId)
+          && get(/databases/$(database)/documents/events/$(eventId)/memberIndex/$(request.auth.uid)).data.memberId == memberId
+        );
+        allow write: if false;
+      }
+      match /audit/{auditId} {
+        allow read: if canOperate(eventId);
+        allow write: if false;
+      }
+      match /emailTheme/{themeId} {
+        allow read: if canOperate(eventId);
+        allow write: if false;
+      }
+      match /publishedBoard/{boardId} {
+        allow read: if isMember(eventId)
+          && eventData(eventId).privacyMode == 'public'
+          && eventData(eventId).status in ['drawn', 'revealed', 'archived'];
+        allow write: if false;
+      }
+      match /serverData/{document=**} {
+        allow read, write: if false;
+      }
+      match /serverThreads/{threadId} {
+        allow read, write: if false;
+      }
+      match /organizerVault/{vaultId} {
+        allow read: if isOrganizer(eventId);
+        allow write: if false;
+      }
+      match /wishAccess/{uid} {
+        allow read, write: if false;
+      }
+      match /coOrganizers/{coUid} {
+        allow read: if isOrganizer(eventId) || isOwner(coUid);
+        allow write: if false;
+      }
+      match /teamProgress/{progressId} {
+        allow read: if canOperate(eventId);
+        allow write: if false;
+      }
+    }
+
+    match /invitationTokens/{tokenId} {
+      allow read, write: if false;
+    }
+    match /joinCodes/{codeId} {
+      allow read, write: if false;
+    }
+    match /mailOutbox/{mailId} {
+      allow read, write: if false;
+    }
+    match /mailCapture/{mailId} {
+      allow read, write: if false;
+    }
+    match /mailSecrets/{secretId} {
+      allow read, write: if false;
+    }
+    match /contactMessages/{messageId} {
+      allow read, write: if false;
+    }
+    match /rateLimits/{rateId} {
+      allow read, write: if false;
+    }
+    match /payments/{paymentId} {
+      allow read, write: if false;
+    }
+    match /paymentNotices/{noticeId} {
+      allow read, write: if false;
+    }
+    match /quoteRequests/{requestId} {
+      allow read, write: if false;
+    }
+  }
+}
