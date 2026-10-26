@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useEffect, useState, type FormEvent } from "react";
 import { useSensitive } from "@/components/providers";
 import { Button } from "@/components/ui/button";
-import { Field, TextInput } from "@/components/ui/field";
+import { Field, PasswordInput } from "@/components/ui/field";
 import { call } from "@/lib/firebase/api";
 import { getFirebaseAuth } from "@/lib/firebase/client";
 
@@ -101,10 +101,10 @@ export function AuthActionScreen({ mode, code }: { mode: string; code: string })
       {phase === "reset" || phase === "weak" || (phase === "network" && mode === "resetPassword") ? (
         <form className="space-y-4 rounded-3xl border border-line bg-card p-5" onSubmit={(event) => void reset(event)}>
           <Field label="Nouveau mot de passe">
-            <TextInput type="password" autoComplete="new-password" value={password} onChange={(event) => setPassword(event.target.value)} />
+            <PasswordInput autoComplete="new-password" value={password} onChange={(event) => setPassword(event.target.value)} />
           </Field>
           <Field label="Confirmation">
-            <TextInput type="password" autoComplete="new-password" value={confirm} onChange={(event) => setConfirm(event.target.value)} />
+            <PasswordInput autoComplete="new-password" value={confirm} onChange={(event) => setConfirm(event.target.value)} />
           </Field>
           {detail && phase === "reset" ? <p className="text-sm text-burgundy">{detail}</p> : null}
           <Button type="submit" busy={busy}>Enregistrer le mot de passe</Button>

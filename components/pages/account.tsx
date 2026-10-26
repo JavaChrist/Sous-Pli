@@ -6,7 +6,7 @@ import { useEffect, useState } from "react";
 import { RequireAuth } from "@/components/require-auth";
 import { signOutClear, useAuth, useConfirm, useSensitive, useToast } from "@/components/providers";
 import { Button } from "@/components/ui/button";
-import { Field, TextInput } from "@/components/ui/field";
+import { Field, PasswordInput, TextInput } from "@/components/ui/field";
 import { EmptyState, ErrorState, LoadingState } from "@/components/ui/states";
 import { call, errorText } from "@/lib/firebase/api";
 import { getDb, getFirebaseAuth } from "@/lib/firebase/client";
@@ -97,7 +97,7 @@ function Profile() {
           <h2 className="font-serif text-2xl">Changer d'adresse</h2>
           <p className="text-sm text-muted">La nouvelle adresse n'est effective qu'après le lien de confirmation. Les participations restent sur ce compte.</p>
           <Field label="Nouvelle adresse"><TextInput type="email" autoComplete="email" value={nextEmail} onChange={(event) => setNextEmail(event.target.value)} /></Field>
-          {passwordAccount ? <Field label="Mot de passe actuel"><TextInput type="password" autoComplete="current-password" value={password} onChange={(event) => setPassword(event.target.value)} onFocus={() => setLocked(true)} onBlur={() => setLocked(false)} /></Field> : null}
+          {passwordAccount ? <Field label="Mot de passe actuel"><PasswordInput autoComplete="current-password" value={password} onChange={(event) => setPassword(event.target.value)} onFocus={() => setLocked(true)} onBlur={() => setLocked(false)} /></Field> : null}
           <Button type="submit">Demander le changement</Button>
         </form>
       ) : null}
@@ -120,7 +120,7 @@ function Profile() {
         }}>
           <h2 className="font-serif text-2xl">Ajouter une adresse</h2>
           <Field label="E-mail"><TextInput type="email" value={email} onChange={(event) => setEmail(event.target.value)} /></Field>
-          <Field label="Mot de passe"><TextInput type="password" value={password} onChange={(event) => setPassword(event.target.value)} /></Field>
+          <Field label="Mot de passe"><PasswordInput value={password} onChange={(event) => setPassword(event.target.value)} /></Field>
           <Button type="submit">Lier cette session</Button>
         </form>
       ) : null}

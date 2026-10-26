@@ -1,5 +1,8 @@
+"use client";
+
+import { Eye, EyeOff } from "lucide-react";
+import { useState, type InputHTMLAttributes, type ReactNode, type SelectHTMLAttributes, type TextareaHTMLAttributes } from "react";
 import { cn } from "@/lib/cn";
-import type { InputHTMLAttributes, ReactNode, SelectHTMLAttributes, TextareaHTMLAttributes } from "react";
 
 export function Field({ label, hint, error, children, className }: { label: string; hint?: string; error?: string; children: ReactNode; className?: string }) {
   return (
@@ -16,6 +19,26 @@ const control = "min-h-11 w-full rounded-2xl border border-line bg-white px-3 py
 
 export function TextInput(props: InputHTMLAttributes<HTMLInputElement>) {
   return <input {...props} className={cn(control, props.className)} />;
+}
+
+export function PasswordInput(props: InputHTMLAttributes<HTMLInputElement>) {
+  const [visible, setVisible] = useState(false);
+  const { className, ...rest } = props;
+  return (
+    <div className="relative">
+      <input {...rest} type={visible ? "text" : "password"} className={cn(control, "pr-12", className)} />
+      <button
+        type="button"
+        className="absolute inset-y-0 right-1 flex w-11 items-center justify-center text-muted"
+        aria-label={visible ? "Masquer le mot de passe" : "Afficher le mot de passe"}
+        aria-pressed={visible}
+        onMouseDown={(event) => event.preventDefault()}
+        onClick={() => setVisible((current) => !current)}
+      >
+        {visible ? <EyeOff className="h-5 w-5" aria-hidden="true" /> : <Eye className="h-5 w-5" aria-hidden="true" />}
+      </button>
+    </div>
+  );
 }
 
 export function TextArea(props: TextareaHTMLAttributes<HTMLTextAreaElement>) {

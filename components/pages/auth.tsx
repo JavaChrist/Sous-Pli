@@ -8,7 +8,7 @@ import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Button } from "@/components/ui/button";
-import { Field, TextInput } from "@/components/ui/field";
+import { Field, PasswordInput, TextInput } from "@/components/ui/field";
 import { useSensitive } from "@/components/providers";
 import { call, errorText } from "@/lib/firebase/api";
 import { getFirebaseAuth } from "@/lib/firebase/client";
@@ -84,7 +84,7 @@ export function AuthScreen({ mode }: { mode: "login" | "signup" | "reset" }) {
         </Field>
         {mode !== "reset" ? (
           <Field className="gap-4" label="Mot de passe" error={form.formState.errors.password?.message}>
-            <TextInput type="password" autoComplete={mode === "signup" ? "new-password" : "current-password"} {...form.register("password")} onFocus={() => setLocked(true)} onBlur={() => setLocked(false)} />
+            <PasswordInput autoComplete={mode === "signup" ? "new-password" : "current-password"} {...form.register("password")} onFocus={() => setLocked(true)} onBlur={() => setLocked(false)} />
           </Field>
         ) : null}
         {mode === "signup" ? (
