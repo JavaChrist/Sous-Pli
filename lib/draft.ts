@@ -57,12 +57,20 @@ export const emptyDraft = (): EventDraft => ({
   members: [],
 });
 
+const textKeys = ["name", "localDate", "localTime", "timeZone", "place", "description", "rulesText", "revealLocalDate", "revealLocalTime", "organizationName", "teamName", "budgetMin", "budgetMax"] as const;
+
 export function loadDraft(): EventDraft | null {
   if (typeof window === "undefined") return null;
   const raw = localStorage.getItem(KEY);
   if (!raw) return null;
   try {
-    return { ...emptyDraft(), ...JSON.parse(raw) };
+    const stored = JSON.parse(raw) as Partial<EventDraft>;
+    const draft = { ...emptyDraft(), ...stored };
+    for (const key of textKeys) {
+      if (typeof draft[key] !== "string") draft[key] = emptyDraft()[key];
+    }
+    if (typeof stored.eventId !== "string" || stored.eventId.length < 8) delete draft.eventId;
+    return draft;
   } catch {
     return null;
   }

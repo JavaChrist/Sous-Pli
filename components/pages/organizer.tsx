@@ -102,35 +102,47 @@ function Wizard() {
   useEffect(() => saveDraft(draft), [draft]);
 
   function eventPayload() {
+    const text = (value: unknown) => (typeof value === "string" ? value : "");
+    const localDate = text(draft.localDate);
+    const localTime = text(draft.localTime) || "18:30";
     return {
-      eventId: draft.eventId,
-      name: draft.name,
+      ...(typeof draft.eventId === "string" && draft.eventId.length >= 8 ? { eventId: draft.eventId } : {}),
+      name: text(draft.name),
       occasion: draft.occasion,
       context: draft.context,
-      localDate: draft.localDate,
-      localTime: draft.localTime,
-      timeZone: draft.timeZone,
-      place: draft.place,
-      description: draft.description,
-      rulesText: draft.rulesText,
+      localDate,
+      localTime,
+      timeZone: text(draft.timeZone) || "Europe/Paris",
+      place: text(draft.place),
+      description: text(draft.description),
+      rulesText: text(draft.rulesText),
       budget: draft.budgetEnabled ? { min: Number(draft.budgetMin), max: Number(draft.budgetMax), currency: "EUR", handmade: draft.handmade, secondHand: draft.secondHand } : null,
       privacyMode: draft.privacyMode,
       giftsPerPerson: Number(draft.giftsPerPerson),
       avoidReciprocal: draft.avoidReciprocal,
       organizerParticipates: draft.organizerParticipates,
-      revealLocalDate: draft.revealLocalDate || draft.localDate,
-      revealLocalTime: draft.revealLocalTime,
+      revealLocalDate: text(draft.revealLocalDate) || localDate,
+      revealLocalTime: text(draft.revealLocalTime) || localTime,
       joinPolicy: draft.joinPolicy,
       offerId: draft.offerId,
-      organizationName: draft.organizationName,
-      teamName: draft.teamName,
+      organizationName: text(draft.organizationName),
+      teamName: text(draft.teamName),
     };
   }
 
   async function persist(): Promise<string | null> {
     const parsed = eventInputSchema.safeParse(eventPayload());
     if (!parsed.success) {
-      setError(parsed.error.issues[0]?.message ?? "Le formulaire est incomplet.");
+      const field = String(parsed.error.issues[0]?.path[0] ?? "");
+      const messages: Record<string, string> = {
+        name: "Indiquez le nom de l'échange, au moins deux lettres.",
+        localDate: "Indiquez la date de l'événement.",
+        revealLocalDate: "Indiquez la date de l'événement.",
+        localTime: "Indiquez l'heure de l'événement.",
+        revealLocalTime: "Indiquez l'heure de l'événement.",
+        timeZone: "Indiquez le fuseau horaire.",
+      };
+      setError(messages[field] ?? "Le formulaire est incomplet. Revenez à la première étape.");
       return null;
     }
     const created = await call<{ eventId: string }>("upsertEvent", parsed.data);
