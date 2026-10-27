@@ -3,7 +3,7 @@ import { defaultTheme, TEMPLATE_IDS } from "@shared/email/templates";
 import { PREVIEW_VARS, renderEmail, TemplateError } from "@shared/email/render";
 import { canClaim, inspectInvitationState, sha256Hex } from "@shared/invites";
 import { mapTabular, sanitizeSpreadsheetCell } from "@shared/import-table";
-import { shouldOfferUpdate, shouldPollVersion, PWA_CHECK_INTERVAL_MS, PWA_LATER_SNOOZE_MS } from "@shared/pwa";
+import { shouldOfferUpdate, shouldOfferInstall, shouldPollVersion, nextInstallVisit, PWA_CHECK_INTERVAL_MS, PWA_LATER_SNOOZE_MS, INSTALL_SNOOZE_MS } from "@shared/pwa";
 import { canRevealNow, zonedLocalToUtc } from "@shared/time";
 
 describe("e-mails", () => {
@@ -131,6 +131,13 @@ describe("import et mise à jour", () => {
     expect(shouldOfferUpdate({ ...base, remoteVersion: null })).toBe(false);
     expect(shouldOfferUpdate({ ...base, snoozeUntil: base.now + PWA_LATER_SNOOZE_MS })).toBe(false);
     expect(shouldOfferUpdate({ ...base, sensitiveLocked: true })).toBe(false);
+    expect(shouldOfferInstall({ now: 10_000, dismissedUntil: null, visits: 3, standalone: false, alreadyShownThisSession: false })).toBe(true);
+    expect(shouldOfferInstall({ now: 10_000, dismissedUntil: null, visits: 2, standalone: false, alreadyShownThisSession: false })).toBe(false);
+    expect(shouldOfferInstall({ now: 10_000, dismissedUntil: 10_000 + INSTALL_SNOOZE_MS, visits: 8, standalone: false, alreadyShownThisSession: false })).toBe(false);
+    expect(shouldOfferInstall({ now: 10_000, dismissedUntil: null, visits: 8, standalone: true, alreadyShownThisSession: false })).toBe(false);
+    expect(nextInstallVisit({ visits: 12, lastVisitDay: null, today: "2026-10-27" })).toEqual({ visits: 1, lastVisitDay: "2026-10-27" });
+    expect(nextInstallVisit({ visits: 1, lastVisitDay: "2026-10-27", today: "2026-10-27" })).toEqual({ visits: 1, lastVisitDay: "2026-10-27" });
+    expect(nextInstallVisit({ visits: 1, lastVisitDay: "2026-10-27", today: "2026-10-28" })).toEqual({ visits: 2, lastVisitDay: "2026-10-28" });
     expect(shouldPollVersion(true, 0, PWA_CHECK_INTERVAL_MS, false)).toBe(true);
     expect(shouldPollVersion(false, 0, PWA_CHECK_INTERVAL_MS * 2, false)).toBe(false);
   });

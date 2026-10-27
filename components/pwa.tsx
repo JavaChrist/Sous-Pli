@@ -1,6 +1,6 @@
 "use client";
 
-import { PWA_CHECK_INTERVAL_MS, PWA_LATER_SNOOZE_MS, shouldOfferUpdate, shouldPollVersion } from "@shared/pwa";
+import { INSTALL_SNOOZE_MS, PWA_CHECK_INTERVAL_MS, PWA_LATER_SNOOZE_MS, nextInstallVisit, shouldOfferInstall, shouldOfferUpdate, shouldPollVersion } from "@shared/pwa";
 import { useEffect, useRef, useState } from "react";
 import { useConfirm, useSensitive } from "./providers";
 import { Button } from "./ui/button";
@@ -167,26 +167,52 @@ export function UpdateManager({ pageVersion }: { pageVersion: string }) {
   );
 }
 
+const INSTALL_DISMISS_KEY = "souspli.pwa.installDismissed";
+const INSTALL_VISITS_KEY = "souspli.pwa.visits";
+const INSTALL_DAY_KEY = "souspli.pwa.installDay";
+const INSTALL_SESSION_KEY = "souspli.pwa.installShown";
+
+function silenceInstallPrompt() {
+  localStorage.setItem(INSTALL_DISMISS_KEY, String(Date.now() + INSTALL_SNOOZE_MS));
+  sessionStorage.setItem(INSTALL_SESSION_KEY, "1");
+}
+
 export function InstallPrompt() {
   const [open, setOpen] = useState(false);
   const [ios, setIos] = useState(false);
 
   useEffect(() => {
-    const dismissed = Number(localStorage.getItem("souspli.pwa.installDismissed") || 0);
-    if (dismissed > Date.now()) return;
-    const visits = Number(localStorage.getItem("souspli.pwa.visits") || 0) + 1;
-    localStorage.setItem("souspli.pwa.visits", String(visits));
+    const today = new Date().toISOString().slice(0, 10);
+    const visit = nextInstallVisit({
+      visits: Number(localStorage.getItem(INSTALL_VISITS_KEY) || 0),
+      lastVisitDay: localStorage.getItem(INSTALL_DAY_KEY),
+      today,
+    });
+    localStorage.setItem(INSTALL_VISITS_KEY, String(visit.visits));
+    localStorage.setItem(INSTALL_DAY_KEY, visit.lastVisitDay);
+    const standalone = window.matchMedia("(display-mode: standalone)").matches || (navigator as Navigator & { standalone?: boolean }).standalone === true;
+    const dismissed = Number(localStorage.getItem(INSTALL_DISMISS_KEY) || 0) || null;
+    const offer = shouldOfferInstall({
+      now: Date.now(),
+      dismissedUntil: dismissed,
+      visits: visit.visits,
+      standalone,
+      alreadyShownThisSession: sessionStorage.getItem(INSTALL_SESSION_KEY) === "1",
+    });
+    if (!offer) return;
     const apple = /iPhone|iPad/.test(navigator.userAgent);
-    const standalone = window.matchMedia("(display-mode: standalone)").matches;
-    if (standalone || visits < 2) return;
     setIos(apple);
+    const show = () => {
+      silenceInstallPrompt();
+      setOpen(true);
+    };
     const onPrompt = (event: Event) => {
       event.preventDefault();
       (window as Window & { souspliInstall?: Event }).souspliInstall = event;
-      setOpen(true);
+      show();
     };
     window.addEventListener("beforeinstallprompt", onPrompt);
-    if (apple) setOpen(true);
+    if (apple) show();
     return () => window.removeEventListener("beforeinstallprompt", onPrompt);
   }, []);
 
@@ -201,7 +227,7 @@ export function InstallPrompt() {
         <Button
           variant="secondary"
           onClick={() => {
-            localStorage.setItem("souspli.pwa.installDismissed", String(Date.now() + 14 * 86400000));
+            silenceInstallPrompt();
             setOpen(false);
           }}
         >
