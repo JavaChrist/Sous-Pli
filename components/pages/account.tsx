@@ -2,7 +2,7 @@
 
 import { collection, doc, onSnapshot, orderBy, query, updateDoc } from "firebase/firestore";
 import { EmailAuthProvider, GoogleAuthProvider, linkWithCredential, reauthenticateWithCredential, reauthenticateWithPopup } from "firebase/auth";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { RequireAuth } from "@/components/require-auth";
 import { signOutClear, useAuth, useConfirm, useSensitive, useToast } from "@/components/providers";
 import { Button } from "@/components/ui/button";
@@ -55,13 +55,27 @@ function Profile() {
   const { user } = useAuth();
   const confirm = useConfirm();
   const toast = useToast();
-  const [name, setName] = useState(user?.displayName ?? "");
+  const [name, setName] = useState("");
+  const editing = useRef(false);
+  const savedName = useRef("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [nextEmail, setNextEmail] = useState("");
   const [error, setError] = useState("");
   const { setLocked } = useSensitive();
   const passwordAccount = Boolean(user?.providerData.some((item) => item.providerId === "password"));
+  useEffect(() => {
+    if (!user) return;
+    return onSnapshot(doc(getDb(), "users", user.uid), (snap) => {
+      const stored = snap.data()?.displayName;
+      const next = typeof stored === "string" && stored.trim() ? stored.trim() : (user.displayName ?? "");
+      if (editing.current) {
+        if (savedName.current && next === savedName.current) editing.current = false;
+        return;
+      }
+      setName(next);
+    });
+  }, [user]);
   return (
     <div className="mx-auto max-w-xl space-y-4">
       <h1 className="font-serif text-4xl text-pine-deep">Profil</h1>
@@ -101,10 +115,18 @@ function Profile() {
           <Button type="submit">Demander le changement</Button>
         </form>
       ) : null}
-      <Field label="Nom affiché"><TextInput value={name} onChange={(event) => setName(event.target.value)} /></Field>
+      <Field label="Nom affiché"><TextInput value={name} onChange={(event) => { editing.current = true; setName(event.target.value); }} /></Field>
       <Button onClick={async () => {
+        const nextName = name.trim();
+        if (!nextName) {
+          setError("Indiquez un nom affiché.");
+          return;
+        }
         try {
-          await call("updatePreferences", { displayName: name, preferences: { notifyReminders: true, notifyActivity: true } });
+          await call("updatePreferences", { displayName: nextName, preferences: { notifyReminders: true, notifyActivity: true } });
+          savedName.current = nextName;
+          setName(nextName);
+          await getFirebaseAuth().currentUser?.reload().catch(() => undefined);
           toast("Profil enregistré");
         } catch (caught) { setError(errorText(caught)); }
       }}>Enregistrer</Button>

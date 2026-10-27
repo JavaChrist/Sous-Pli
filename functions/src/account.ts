@@ -34,6 +34,7 @@ export const ensureProfile = callable(async (request, uid) => {
       createdAt: stamp(),
     });
   } else {
+    const storedName = typeof snap.data()?.displayName === "string" ? String(snap.data()?.displayName).trim() : "";
     await ref.set({
       email: user.email || snap.data()?.email || "",
       lastSeenAt: stamp(),
@@ -41,6 +42,9 @@ export const ensureProfile = callable(async (request, uid) => {
       ...terms,
       updatedAt: stamp(),
     }, { merge: true });
+    if (storedName && storedName !== (user.displayName || "")) {
+      await adminAuth.updateUser(uid, { displayName: storedName });
+    }
   }
   return { ok: true };
 });
@@ -55,6 +59,15 @@ export const updatePreferences = callable(async (request, uid) => {
     { displayName: displayName.data.displayName, preferences: preferences.data, updatedAt: stamp() },
     { merge: true },
   );
+  await adminAuth.updateUser(uid, { displayName: displayName.data.displayName });
+  const events = await db.collection("events").where("organizerUid", "==", uid).get();
+  for (const event of events.docs) {
+    const members = await event.ref.collection("members").where("role", "==", "organizer").limit(5).get();
+    for (const member of members.docs) {
+      if (member.data().displayName === displayName.data.displayName) continue;
+      await member.ref.update({ displayName: displayName.data.displayName, updatedAt: stamp() });
+    }
+  }
   return { ok: true };
 });
 
