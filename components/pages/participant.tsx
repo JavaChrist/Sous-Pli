@@ -6,7 +6,7 @@ import { useEffect, useState } from "react";
 import { RequireAuth } from "@/components/require-auth";
 import { useAuth, useToast } from "@/components/providers";
 import { Button } from "@/components/ui/button";
-import { Field, TextArea, TextInput } from "@/components/ui/field";
+import { Field, SelectInput, TextArea, TextInput } from "@/components/ui/field";
 import { Modal } from "@/components/ui/modal";
 import { EmptyState, ErrorState, LoadingState } from "@/components/ui/states";
 import { call, errorText } from "@/lib/firebase/api";
@@ -74,6 +74,7 @@ function Home({ eventId }: { eventId: string }) {
       <div className="flex flex-wrap gap-2">
         <Button onClick={async () => { try { await call("markDiscovered", { eventId }); setOpen(true); } catch (caught) { setError(errorText(caught)); } }}>Découvrir mon destinataire</Button>
         <Link className="rounded-full border border-line px-4 py-2 text-sm" href={`/participations/${eventId}/souhaits`}>Souhaits</Link>
+        <Link className="rounded-full border border-line px-4 py-2 text-sm" href={`/participations/${eventId}/idees`}>Idées cadeau</Link>
         <Link className="rounded-full border border-line px-4 py-2 text-sm" href={`/participations/${eventId}/messages`}>Messages</Link>
         <Link className="rounded-full border border-line px-4 py-2 text-sm" href={`/participations/${eventId}/jour-j`}>Jour J</Link>
       </div>
@@ -137,6 +138,115 @@ function Wishes({ eventId }: { eventId: string }) {
       {error ? <p className="text-sm text-burgundy">{error}</p> : null}
       <Button type="submit">Enregistrer</Button>
     </form>
+  );
+}
+
+type IdeaBoard = {
+  people: Array<{ id: string; displayName: string }>;
+  mine: Array<{ id: string; aboutMemberId: string; text: string }>;
+  recipients: Array<{
+    memberId: string | null;
+    label: string;
+    wishes: Array<{ text: string }>;
+    sizes: string;
+    avoid: string;
+    ideas: Array<{ authorName: string; text: string }>;
+  }>;
+};
+
+export function IdeasPage({ eventId }: { eventId: string }) {
+  return <RequireAuth><Ideas eventId={eventId} /></RequireAuth>;
+}
+
+function Ideas({ eventId }: { eventId: string }) {
+  const toast = useToast();
+  const [board, setBoard] = useState<IdeaBoard | null>(null);
+  const [aboutId, setAboutId] = useState("");
+  const [text, setText] = useState("");
+  const [error, setError] = useState("");
+  const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    let stopped = false;
+    void call<IdeaBoard>("listGiftIdeas", { eventId })
+      .then((next) => {
+        if (stopped) return;
+        setBoard(next);
+        setAboutId((current) => current || next.people[0]?.id || "");
+      })
+      .catch((caught) => { if (!stopped) setError(errorText(caught)); });
+    return () => { stopped = true; };
+  }, [eventId]);
+
+  async function reload() {
+    const next = await call<IdeaBoard>("listGiftIdeas", { eventId });
+    setBoard(next);
+    setAboutId((current) => current || next.people[0]?.id || "");
+  }
+
+  const nameOf = (id: string) => board?.people.find((person) => person.id === id)?.displayName ?? "Personne";
+
+  return (
+    <div className="mx-auto max-w-2xl space-y-4">
+      <h1 className="font-serif text-4xl">Idées cadeau</h1>
+      <p className="text-sm text-muted">Les prénoms du groupe sont visibles pour choisir une personne. Les adresses restent cachées. Noter une idée ne révèle pas qui offre à qui. La personne concernée ne voit pas ces notes : seule celle qui l'a tirée les consulte, avec le prénom de l'auteur.</p>
+      {error ? <ErrorState>{error}</ErrorState> : null}
+      {board === null && !error ? <LoadingState /> : null}
+      {board && board.recipients.length === 0 ? <p className="text-sm text-muted">Après le tirage, les idées notées sur votre destinataire apparaîtront ici.</p> : null}
+      {board?.recipients.map((recipient) => (
+        <article key={`${recipient.memberId ?? "secret"}-${recipient.label}`} className="space-y-2 rounded-3xl border border-line bg-card p-5">
+          <h2 className="font-serif text-2xl">{recipient.label}</h2>
+          {recipient.wishes.length ? recipient.wishes.map((wish, index) => <p key={`${recipient.label}-${index}`} className="text-sm">{wish.text}</p>) : <p className="text-sm text-muted">Cette personne n'a pas encore écrit de souhait.</p>}
+          {recipient.sizes ? <p className="text-sm text-muted">Tailles : {recipient.sizes}</p> : null}
+          {recipient.avoid ? <p className="text-sm text-muted">À éviter : {recipient.avoid}</p> : null}
+          <h3 className="text-sm font-semibold">Idées notées par les autres</h3>
+          {recipient.ideas.length ? recipient.ideas.map((idea) => (
+            <p key={`${idea.authorName}-${idea.text}`} className="text-sm"><strong>{idea.authorName}.</strong> {idea.text}</p>
+          )) : <p className="text-sm text-muted">Aucune idée notée pour l'instant.</p>}
+        </article>
+      ))}
+      <form className="space-y-3 rounded-3xl border border-line bg-card p-5" onSubmit={async (event) => {
+        event.preventDefault();
+        setBusy(true);
+        setError("");
+        try {
+          await call("addGiftIdea", { eventId, aboutMemberId: aboutId, text });
+          setText("");
+          await reload();
+          toast("Idée notée");
+        } catch (caught) {
+          setError(errorText(caught));
+        } finally {
+          setBusy(false);
+        }
+      }}>
+        <h2 className="font-serif text-2xl">Noter une idée</h2>
+        <Field label="Personne">
+          <SelectInput value={aboutId} onChange={(event) => setAboutId(event.target.value)}>
+            {board?.people.map((person) => <option key={person.id} value={person.id}>{person.displayName}</option>)}
+          </SelectInput>
+        </Field>
+        <Field label="Idée">
+          <TextArea value={text} maxLength={280} onChange={(event) => setText(event.target.value)} placeholder="Par exemple : aimerait un appareil photo" />
+        </Field>
+        <Button busy={busy} type="submit">Noter l'idée</Button>
+      </form>
+      {board?.mine.length ? (
+        <ul className="space-y-2 text-sm">
+          {board.mine.map((idea) => (
+            <li key={idea.id} className="flex items-center justify-between gap-3 rounded-2xl bg-cream px-3 py-2">
+              <span>Pour {nameOf(idea.aboutMemberId)} : {idea.text}</span>
+              <button type="button" className="text-burgundy" onClick={async () => {
+                try {
+                  await call("deleteGiftIdea", { eventId, ideaId: idea.id });
+                  await reload();
+                } catch (caught) { setError(errorText(caught)); }
+              }}>Retirer</button>
+            </li>
+          ))}
+        </ul>
+      ) : null}
+    </div>
   );
 }
 

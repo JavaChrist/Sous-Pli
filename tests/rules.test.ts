@@ -78,6 +78,14 @@ test("chacun lit ses participations, pas celles d'un autre", async () => {
   await assertFails(env.authenticatedContext("autre0001").firestore().doc("events/event0001/memberIndex/member01").get());
 });
 
+test("une idée cadeau ne se lit pas depuis le navigateur", async () => {
+  await env.withSecurityRulesDisabled(async (context) => {
+    await context.firestore().doc("events/event0001/giftIdeas/idea00001").set({ text: "Un livre", aboutMemberId: "mem00001" });
+  });
+  await assertFails(env.authenticatedContext("member01").firestore().doc("events/event0001/giftIdeas/idea00001").get());
+  await assertFails(env.authenticatedContext("orga0001").firestore().doc("events/event0001/giftIdeas/idea00001").get());
+});
+
 test("une notification ne peut changer que le marqueur lu", async () => {
   const ref = env.authenticatedContext("member01").firestore().doc("users/member01/notifications/note0001");
   await assertSucceeds(ref.update({ read: true }));

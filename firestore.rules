@@ -93,6 +93,9 @@ service cloud.firestore {
         allow read: if canOperate(eventId);
         allow write: if false;
       }
+      match /giftIdeas/{ideaId} {
+        allow read, write: if false;
+      }
       match /wishlists/{memberId} {
         allow read: if isOrganizer(eventId) || (
           isMember(eventId)

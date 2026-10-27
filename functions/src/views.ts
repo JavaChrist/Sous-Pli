@@ -142,6 +142,14 @@ export async function copyWishes(eventId: string, privacyMode: PrivacyMode, reve
   const uids = await memberUids(eventId);
   const wishSnap = await db.collection("events").doc(eventId).collection("wishlists").get();
   const wishes = new Map(wishSnap.docs.map((doc) => [doc.id, doc.data()]));
+  const ideaSnap = await db.collection("events").doc(eventId).collection("giftIdeas").get();
+  const ideasByPerson = new Map<string, Array<{ authorName: string; text: string }>>();
+  for (const idea of ideaSnap.docs) {
+    const about = String(idea.data().aboutMemberId ?? "");
+    const list = ideasByPerson.get(about) ?? [];
+    list.push({ authorName: String(idea.data().authorName ?? "Participant"), text: String(idea.data().text ?? "") });
+    ideasByPerson.set(about, list);
+  }
   const grouped = new Map<string, StoredAssignment[]>();
   for (const edge of assignments) {
     const list = grouped.get(edge.giverId) ?? [];
@@ -161,6 +169,7 @@ export async function copyWishes(eventId: string, privacyMode: PrivacyMode, reve
           items: wish.items ?? [],
           sizes: wish.sizes ?? "",
           avoid: wish.avoid ?? "",
+          ideas: ideasByPerson.get(edge.recipientId) ?? [],
         };
       }),
       updatedAt: stamp(),

@@ -86,6 +86,17 @@ export const wishItemSchema = z.object({
   note: z.string().trim().max(280).default(""),
 });
 
+export const giftIdeaSchema = z.object({
+  eventId: id,
+  aboutMemberId: id,
+  text: z.string().trim().min(1).max(280),
+});
+
+export const giftIdeaDeleteSchema = z.object({
+  eventId: id,
+  ideaId: id,
+});
+
 export const wishlistSchema = z.object({
   eventId: id,
   items: z.array(wishItemSchema).max(limits.maxWishItems),

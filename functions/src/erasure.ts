@@ -45,6 +45,16 @@ export async function eraseAccount(uid: string, apply: boolean): Promise<EraseRe
     }
     await index.ref.delete();
     await db.collection("events").doc(eventId).collection("wishlists").doc(memberId).delete();
+    const ideas = await db.collection("events").doc(eventId).collection("giftIdeas").get();
+    for (const idea of ideas.docs) {
+      if (!apply) continue;
+      if (String(idea.data().authorMemberId ?? "") === memberId) {
+        await idea.ref.set({ authorName: "Participant retiré" }, { merge: true });
+      }
+      if (String(idea.data().aboutMemberId ?? "") === memberId && !CLOSED.has(status) && status !== "drawn" && status !== "revealed") {
+        await idea.ref.delete();
+      }
+    }
     await deletePrefix(`events/${eventId}/wishes/${memberId}/`);
   }
 
