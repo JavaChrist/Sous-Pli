@@ -58,6 +58,7 @@ export const memberInputSchema = z.object({
 export const membersInputSchema = z.object({
   eventId: id,
   members: z.array(memberInputSchema).max(limits.maxMembers),
+  organizerParticipates: z.boolean().optional(),
 });
 
 export const constraintSchema = z.discriminatedUnion("kind", [

@@ -89,6 +89,7 @@ export function WizardPage() {
 }
 
 function Wizard() {
+  const { user } = useAuth();
   const [draft, setDraft] = useState<EventDraft>(emptyDraft());
   const [step, setStep] = useState(0);
   const [error, setError] = useState("");
@@ -176,7 +177,7 @@ function Wizard() {
     try {
       const id = await persist();
       if (!id) return;
-      await call("setMembers", { eventId: id, members: draft.members });
+      await call("setMembers", { eventId: id, members: draft.members, organizerParticipates: draft.organizerParticipates });
       clearDraft();
       toast("Échange enregistré. Aucune invitation n'a été envoyée.");
       window.location.href = `/evenements/${id}`;
@@ -261,8 +262,17 @@ function Wizard() {
       ) : null}
       {step === 3 ? (
         <div className="space-y-2">
-          <p className="text-sm text-muted">Capacité prévue : {CATALOG[draft.offerId].capacity ?? "devis"}. L'organisateur compte s'il participe. Personne n'est retiré automatiquement.</p>
-          <MemberEditor members={draft.members} onChange={(members) => setDraft({ ...draft, members })} />
+          <p className="text-sm text-muted">Capacité prévue : {CATALOG[draft.offerId].capacity ?? "devis"}. Ajoutez-vous si vous participez au tirage. Personne n'est retiré automatiquement.</p>
+          <MemberEditor
+            members={draft.members}
+            onChange={(members) => setDraft({ ...draft, members })}
+            self={{
+              name: user?.displayName?.trim() || "Vous",
+              included: draft.organizerParticipates,
+              onInclude: () => setDraft({ ...draft, organizerParticipates: true }),
+              onRemove: () => setDraft({ ...draft, organizerParticipates: false }),
+            }}
+          />
         </div>
       ) : null}
       {error ? <p className="text-sm text-burgundy">{error}</p> : null}
@@ -291,12 +301,14 @@ function MemberEditor({
   excludeEventId,
   organizerMemberId,
   onReused,
+  self,
 }: {
   members: EventDraft["members"];
   onChange: (members: EventDraft["members"]) => void;
   excludeEventId?: string;
   organizerMemberId?: string | null;
   onReused?: (members: EventDraft["members"]) => Promise<void>;
+  self?: { name: string; included: boolean; onInclude: () => void; onRemove: () => void };
 }) {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
@@ -311,10 +323,17 @@ function MemberEditor({
         <Button type="button" onClick={() => { if (!name.trim()) return; onChange([...members, { displayName: name.trim(), email: email.trim(), groupLabel: "" }]); setName(""); setEmail(""); }}>Ajouter</Button>
       </div>
       <div className="flex flex-wrap gap-2">
+        {self && !self.included ? <Button variant="secondary" type="button" onClick={self.onInclude}>M'ajouter</Button> : null}
         <Button variant="secondary" type="button" onClick={() => setImportOpen(true)}>Importer un fichier</Button>
         <Button variant="secondary" type="button" onClick={() => setReuseOpen(true)}>Reprendre un groupe</Button>
       </div>
       <ul className="space-y-2 text-sm">
+        {self?.included ? (
+          <li className="flex items-center justify-between rounded-2xl bg-cream px-3 py-2">
+            <span>{self.name === "Vous" ? "Vous" : `Vous · ${self.name}`}</span>
+            <Button type="button" variant="danger" onClick={self.onRemove}>Retirer</Button>
+          </li>
+        ) : null}
         {members.map((member, index) => (
           <li key={`${member.displayName}-${index}`} className="flex items-center justify-between rounded-2xl bg-cream px-3 py-2">
             <span>{member.displayName}{member.email ? ` · ${member.email}` : ""}</span>
@@ -730,8 +749,12 @@ export function ParticipantsPage({ eventId }: { eventId: string }) {
 }
 
 function Participants({ eventId }: { eventId: string }) {
+  const { user } = useAuth();
   const [members, setMembers] = useState<EventDraft["members"]>([]);
   const [organizerMemberId, setOrganizerMemberId] = useState<string | null>(null);
+  const [organizerName, setOrganizerName] = useState("");
+  const [participates, setParticipates] = useState(false);
+  const [principal, setPrincipal] = useState(false);
   const [emails, setEmails] = useState<Record<string, string>>({});
   const [error, setError] = useState("");
   const [ready, setReady] = useState(false);
@@ -741,9 +764,14 @@ function Participants({ eventId }: { eventId: string }) {
     snap.docs.forEach((item) => { next[item.id] = String(item.data().email ?? ""); });
     setEmails(next);
   }), [eventId]);
+  useEffect(() => onSnapshot(doc(getDb(), "events", eventId), (snap) => {
+    setParticipates(snap.data()?.organizerParticipates === true);
+    setPrincipal(snap.data()?.organizerUid === user?.uid);
+  }), [eventId, user?.uid]);
   useEffect(() => onSnapshot(collection(getDb(), "events", eventId, "members"), (snap) => {
     const organizer = snap.docs.find((item) => item.data().role === "organizer");
     setOrganizerMemberId(organizer?.id ?? null);
+    setOrganizerName(String(organizer?.data().displayName ?? ""));
     setMembers(snap.docs.filter((item) => item.data().role !== "organizer").map((item) => ({
       memberId: item.id,
       displayName: String(item.data().displayName ?? ""),
@@ -753,27 +781,43 @@ function Participants({ eventId }: { eventId: string }) {
     })));
     setReady(true);
   }, (caught) => setError(errorText(caught))), [eventId, emails]);
+  async function saveRoster(next: EventDraft["members"], included: boolean) {
+    setError("");
+    try {
+      await call("setMembers", {
+        eventId,
+        organizerParticipates: included,
+        members: next.map((member) => ({ ...member, email: member.email || emails[member.memberId ?? ""] || "" })),
+      });
+      setParticipates(included);
+      if (included === participates) toast("Participants enregistrés");
+      else toast(included ? "Vous participez au tirage." : "Vous ne participez plus au tirage.");
+    } catch (caught) {
+      setError(errorText(caught));
+    }
+  }
   if (!ready && !error) return <LoadingState />;
   return (
     <div className="space-y-4">
       <h1 className="font-serif text-4xl">Participants</h1>
-      <p className="text-sm text-muted">Les adresses restent dans l'espace organisateur. Deux prénoms identiques ne sont pas fusionnés. Pour un cadeau top et un cadeau flop, reprenez le groupe d'un échange déjà créé.</p>
+      <p className="text-sm text-muted">Les adresses restent dans l'espace organisateur. Deux prénoms identiques ne sont pas fusionnés. Vous pouvez aussi vous ajouter au tirage. Pour un cadeau top et un cadeau flop, reprenez le groupe d'un échange déjà créé.</p>
       {error ? <ErrorState>{error}</ErrorState> : null}
       <MemberEditor
         members={members}
         excludeEventId={eventId}
         organizerMemberId={organizerMemberId}
         onChange={setMembers}
+        self={principal ? {
+          name: organizerName || user?.displayName?.trim() || "Vous",
+          included: participates,
+          onInclude: () => void saveRoster(members, true),
+          onRemove: () => void saveRoster(members, false),
+        } : undefined}
         onReused={async (next) => {
-          await call("setMembers", { eventId, members: next.map((member) => ({ ...member, email: member.email || emails[member.memberId ?? ""] || "" })) });
+          await saveRoster(next, participates);
         }}
       />
-      <Button onClick={async () => {
-        try {
-          await call("setMembers", { eventId, members: members.map((member) => ({ ...member, email: member.email || emails[member.memberId ?? ""] || "" })) });
-          toast("Participants enregistrés");
-        } catch (caught) { setError(errorText(caught)); }
-      }}>Enregistrer les participants</Button>
+      <Button onClick={() => void saveRoster(members, participates)}>Enregistrer les participants</Button>
     </div>
   );
 }

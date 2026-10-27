@@ -154,16 +154,21 @@ export const setMembers = callable(async (request, uid) => {
   if (!canEditRoster(data.status as EventStatus)) {
     throw new HttpsError("failed-precondition", "Les participants ne se modifient plus librement après le tirage.");
   }
-  const user = await adminAuth.getUser(uid);
   const existing = await readMembers(input.eventId);
   const organizerExisting = existing.find((member) => member.role === "organizer");
   const kept = new Map(existing.map((member) => [member.id, member]));
   const next: Array<MemberRecord & { email: string }> = [];
+  const organizerUid = String(data.organizerUid || uid);
+  const participates = typeof input.organizerParticipates === "boolean" ? input.organizerParticipates : Boolean(data.organizerParticipates);
+  if (participates !== Boolean(data.organizerParticipates)) {
+    await ref.update({ organizerParticipates: participates, updatedAt: stamp() });
+  }
 
-  if (data.organizerParticipates) {
+  if (participates) {
+    const user = await adminAuth.getUser(organizerUid);
     next.push({
       id: organizerExisting?.id ?? newId(),
-      displayName: await userName(uid),
+      displayName: await userName(organizerUid),
       status: "joined",
       role: "organizer",
       managedByMemberId: null,
@@ -256,10 +261,10 @@ export const setMembers = callable(async (request, uid) => {
   }
 
   const joinedUid = new Map<string, string>();
-  if (data.organizerParticipates) joinedUid.set(next[0]!.id, uid);
+  if (participates) joinedUid.set(next[0]!.id, organizerUid);
   for (const doc of indexSnap.docs) {
     const memberId = String(doc.data().memberId ?? "");
-    if (ids.has(memberId) && doc.id !== uid) joinedUid.set(memberId, doc.id);
+    if (ids.has(memberId) && doc.id !== organizerUid) joinedUid.set(memberId, doc.id);
   }
   for (const [memberId, memberUid] of joinedUid) {
     const member = next.find((item) => item.id === memberId);
