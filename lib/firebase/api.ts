@@ -36,7 +36,7 @@ export function errorText(error: unknown): string {
   if (error && typeof error === "object" && "message" in error) {
     const message = String((error as { message: string }).message);
     const cleaned = message.replace(/^Firebase:\s*/i, "").replace(/^FirebaseError:\s*/i, "").replace(/\s*\[\d{3}\]$/, "");
-    if (cleaned && cleaned !== "internal" && !/^[a-z-]+ \[0\]$/.test(cleaned)) return cleaned;
+    if (cleaned && cleaned.toLowerCase() !== "internal" && !/^[a-z-]+ \[0\]$/i.test(cleaned)) return cleaned;
   }
   return "L'opération n'a pas abouti. Réessayez dans un instant.";
 }

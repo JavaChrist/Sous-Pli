@@ -193,8 +193,23 @@ export const deleteEvent = callable(async (request, uid) => {
   for (const doc of tokens.docs) await doc.ref.delete();
   const codes = await db.collection("joinCodes").where("eventId", "==", eventId).get();
   for (const doc of codes.docs) await doc.ref.delete();
-  const [files] = await bucket.getFiles({ prefix: `events/${eventId}/`, maxResults: 100, autoPaginate: false });
-  await Promise.all(files.map((file) => file.delete({ ignoreNotFound: true })));
+  const index = await ref.collection("memberIndex").get();
+  for (const person of index.docs) {
+    const assignments = db.collection("users").doc(person.id).collection("assignments");
+    await assignments.doc(eventId).delete();
+    const managed = Array.isArray(person.data().managedMemberIds) ? person.data().managedMemberIds as string[] : [];
+    for (const memberId of managed) await assignments.doc(`${eventId}_${memberId}`).delete();
+  }
+  await removeStoredFiles(eventId);
   await db.recursiveDelete(ref);
   return { ok: true };
 });
+
+async function removeStoredFiles(eventId: string) {
+  try {
+    const [files] = await bucket.getFiles({ prefix: `events/${eventId}/`, maxResults: 100, autoPaginate: false });
+    await Promise.all(files.map((file) => file.delete({ ignoreNotFound: true })));
+  } catch (error) {
+    console.error("deleteEvent storage skipped", eventId, error instanceof Error ? error.message : "unknown");
+  }
+}
