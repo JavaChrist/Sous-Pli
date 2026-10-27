@@ -93,6 +93,7 @@ function Wizard() {
   const [step, setStep] = useState(0);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
+  const [payOpen, setPayOpen] = useState(false);
   const toast = useToast();
   useEffect(() => {
     const stored = loadDraft();
@@ -100,8 +101,9 @@ function Wizard() {
   }, []);
   useEffect(() => saveDraft(draft), [draft]);
 
-  async function save() {
-    const payload = {
+  function eventPayload() {
+    return {
+      eventId: draft.eventId,
       name: draft.name,
       occasion: draft.occasion,
       context: draft.context,
@@ -123,20 +125,49 @@ function Wizard() {
       organizationName: draft.organizationName,
       teamName: draft.teamName,
     };
-    const parsed = eventInputSchema.safeParse(payload);
+  }
+
+  async function persist(): Promise<string | null> {
+    const parsed = eventInputSchema.safeParse(eventPayload());
     if (!parsed.success) {
       setError(parsed.error.issues[0]?.message ?? "Le formulaire est incomplet.");
+      return null;
+    }
+    const created = await call<{ eventId: string }>("upsertEvent", parsed.data);
+    if (created.eventId !== draft.eventId) setDraft((current) => ({ ...current, eventId: created.eventId }));
+    return created.eventId;
+  }
+
+  async function next() {
+    if (step !== 1 || (!asksPayment(draft.offerId) && !draft.eventId)) {
+      setStep((value) => value + 1);
       return;
     }
     setBusy(true);
     setError("");
     try {
-      const created = await call<{ eventId: string }>("upsertEvent", parsed.data);
-      await call("setMembers", { eventId: created.eventId, members: draft.members });
+      const id = await persist();
+      if (!id) return;
+      await call("selectOffer", { eventId: id, offerId: draft.offerId });
+      if (asksPayment(draft.offerId)) setPayOpen(true);
+      else setStep(2);
+    } catch (caught) {
+      setError(errorText(caught));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function save() {
+    setBusy(true);
+    setError("");
+    try {
+      const id = await persist();
+      if (!id) return;
+      await call("setMembers", { eventId: id, members: draft.members });
       clearDraft();
       toast("Échange enregistré. Aucune invitation n'a été envoyée.");
-      const payment = asksPayment(draft.offerId) ? "?paiement=1" : "";
-      window.location.href = `/evenements/${created.eventId}${payment}`;
+      window.location.href = `/evenements/${id}`;
     } catch (caught) {
       setError(errorText(caught));
     } finally {
@@ -147,7 +178,7 @@ function Wizard() {
   return (
     <div className="mx-auto max-w-2xl space-y-4">
       <h1 className="font-serif text-4xl text-pine-deep">Nouvel échange</h1>
-      <p className="text-sm text-muted">Étape {step + 1} sur 4. Le brouillon reste sur cet appareil tant qu'il n'est pas enregistré.</p>
+      <p className="text-sm text-muted">{draft.eventId ? `Étape ${step + 1} sur 4. L'échange est enregistré. Les étapes suivantes le complètent.` : `Étape ${step + 1} sur 4. Le brouillon reste sur cet appareil tant qu'il n'est pas enregistré.`}</p>
       {step === 0 ? (
         <div className="space-y-3 rounded-3xl border border-line bg-card p-5">
           <Field label="Nom"><TextInput value={draft.name} onChange={(event) => setDraft({ ...draft, name: event.target.value })} /></Field>
@@ -176,7 +207,7 @@ function Wizard() {
       {step === 1 ? (
         <div className="space-y-3 rounded-3xl border border-line bg-card p-5">
           <h2 className="font-serif text-2xl">Offre</h2>
-          <p className="text-sm text-muted">Un paiement par événement, sans abonnement. Les participants ne paient jamais. Le brouillon se termine d'abord. À l'enregistrement, le paiement d'une offre payante s'ouvre tout seul. Le tirage attend la confirmation serveur.</p>
+          <p className="text-sm text-muted">Un paiement par événement, sans abonnement. Les participants ne paient jamais. Valider une offre payante ouvre le paiement tout de suite. Les règles et les participants viennent ensuite. Le tirage attend la confirmation serveur.</p>
           <Field label="Formule">
             <SelectInput value={draft.offerId} onChange={(event) => setDraft({ ...draft, offerId: event.target.value as EventDraft["offerId"] })}>
               {Object.values(CATALOG).filter((offer) => offer.contexts.includes(draft.context)).map((offer) => (
@@ -225,8 +256,19 @@ function Wizard() {
       {error ? <p className="text-sm text-burgundy">{error}</p> : null}
       <div className="flex flex-wrap justify-between gap-2">
         <Button variant="secondary" disabled={step === 0} onClick={() => setStep((value) => value - 1)}>Retour</Button>
-        {step < 3 ? <Button onClick={() => setStep((value) => value + 1)}>Continuer</Button> : <Button busy={busy} onClick={() => void save()}>{asksPayment(draft.offerId) ? "Enregistrer et payer" : "Enregistrer le brouillon"}</Button>}
+        {step < 3 ? <Button busy={busy} onClick={() => void next()}>{step === 1 && asksPayment(draft.offerId) ? "Valider et payer" : "Continuer"}</Button> : <Button busy={busy} onClick={() => void save()}>Enregistrer le brouillon</Button>}
       </div>
+      {draft.eventId ? (
+        <PaymentPrompt
+          eventId={draft.eventId}
+          open={payOpen}
+          onOpenChange={(open) => {
+            setPayOpen(open);
+            if (!open) setStep(2);
+          }}
+          description="L'offre est validée. Fermer cette fenêtre reporte le paiement. Les règles et les participants viennent ensuite. Le tirage attend la confirmation du serveur."
+        />
+      ) : null}
     </div>
   );
 }

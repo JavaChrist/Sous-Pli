@@ -122,10 +122,12 @@ export function PaymentPrompt({
   eventId,
   open,
   onOpenChange,
+  description = "L'événement est enregistré. Fermer cette fenêtre reporte le paiement. Le tirage attend la confirmation du serveur.",
 }: {
   eventId: string;
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  description?: string;
 }) {
   const [busy, setBusy] = useState(false);
   return (
@@ -133,7 +135,7 @@ export function PaymentPrompt({
       open={open}
       onOpenChange={onOpenChange}
       title="Paiement"
-      description="L'événement est enregistré. Fermer cette fenêtre reporte le paiement. Le tirage attend la confirmation du serveur."
+      description={description}
       busy={busy}
     >
       {open ? <Checkout eventId={eventId} embedded onLater={() => onOpenChange(false)} onBusy={setBusy} /> : null}

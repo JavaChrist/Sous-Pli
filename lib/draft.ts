@@ -23,6 +23,7 @@ export interface EventDraft {
   revealLocalTime: string;
   joinPolicy: "approval" | "open" | "closed";
   offerId: "family" | "association" | "business" | "business_plus" | "quote";
+  eventId?: string;
   organizationName: string;
   teamName: string;
   members: Array<{ memberId?: string; displayName: string; email: string; groupLabel: string; managedByMemberId?: string | null }>;
