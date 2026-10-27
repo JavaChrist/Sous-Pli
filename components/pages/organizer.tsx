@@ -513,13 +513,13 @@ function Dashboard({ eventId }: { eventId: string }) {
         <span className="rounded-full bg-card px-3 py-1 text-xs">{PRIVACY_LABELS[event.privacyMode as keyof typeof PRIVACY_LABELS]}</span>
       </div>
       <div className="grid gap-3 sm:grid-cols-3">
-        <ButtonLink variant="secondary" className="w-full justify-start" href={`/evenements/${eventId}/participants`}>Participants</ButtonLink>
-        <ButtonLink variant="secondary" className="w-full justify-start" href={`/evenements/${eventId}/exclusions`}>Règles et exclusions</ButtonLink>
-        <ButtonLink variant="secondary" className="w-full justify-start" href={`/evenements/${eventId}/invitations`}>Invitations</ButtonLink>
-        <ButtonLink variant="secondary" className="w-full justify-start" href={`/evenements/${eventId}/courriels`}>E-mails</ButtonLink>
-        <Button type="button" variant="secondary" className="w-full justify-start" onClick={() => setPayOpen(true)}>Offre et paiement</Button>
-        <ButtonLink variant="secondary" className="w-full justify-start" href={`/participations/${eventId}`}>Mon espace</ButtonLink>
-        <ButtonLink variant="secondary" className="w-full justify-start" href={`/participations/${eventId}/jour-j`}>Jour J</ButtonLink>
+        <ButtonLink variant="secondary" className="w-full justify-start border border-line bg-card" href={`/evenements/${eventId}/participants`}>Participants</ButtonLink>
+        <ButtonLink variant="secondary" className="w-full justify-start border border-line bg-card" href={`/evenements/${eventId}/exclusions`}>Règles et exclusions</ButtonLink>
+        <ButtonLink variant="secondary" className="w-full justify-start border border-line bg-card" href={`/evenements/${eventId}/invitations`}>Invitations</ButtonLink>
+        <ButtonLink variant="secondary" className="w-full justify-start border border-line bg-card" href={`/evenements/${eventId}/courriels`}>E-mails</ButtonLink>
+        <Button type="button" variant="secondary" className="w-full justify-start border border-line bg-card" onClick={() => setPayOpen(true)}>Offre et paiement</Button>
+        <ButtonLink variant="secondary" className="w-full justify-start border border-line bg-card" href={`/participations/${eventId}`}>Mon espace</ButtonLink>
+        <ButtonLink variant="secondary" className="w-full justify-start border border-line bg-card" href={`/participations/${eventId}/jour-j`}>Jour J</ButtonLink>
       </div>
       <p className="text-sm text-muted">{CATALOG[commercial.offerId].title} · {commercial.status === "paid" ? "payée" : commercial.status === "included" ? "incluse" : commercial.status === "pending" ? "confirmation du paiement en cours" : "paiement non confirmé"}</p>
       {commercial.offerId === "business_plus" && commercial.status === "paid" ? <TeamProgress eventId={eventId} /> : null}
@@ -528,18 +528,18 @@ function Dashboard({ eventId }: { eventId: string }) {
       {info ? <p className="text-sm text-pine">{info}</p> : null}
       <div className="flex flex-wrap gap-2">
         {["draft", "registration_open", "ready"].includes(status) ? <Button busy={busy} onClick={() => void launch()}>Lancer le tirage</Button> : null}
-        <Button variant="secondary" onClick={async () => {
+        <Button variant="secondary" className="border border-line bg-card" onClick={async () => {
           try {
             const result = await call<{ ok: boolean; messages: string[] }>("checkFeasibility", { eventId });
             setInfo(result.messages.join(" "));
           } catch (caught) { setError(errorText(caught)); }
         }}>Vérifier la faisabilité</Button>
-        {status === "drawn" ? <Button variant="secondary" onClick={async () => {
+        {status === "drawn" ? <Button variant="secondary" className="border border-line bg-card" onClick={async () => {
           const accepted = await confirm({ title: "Révéler les résultats ?", description: "Le serveur refuse cette action avant l'heure prévue.", confirmLabel: "Révéler", danger: true });
           if (!accepted) return;
           try { await call("revealEvent", { eventId }); toast("Révélation ouverte"); } catch (caught) { setError(errorText(caught)); }
         }}>Révélation collective</Button> : null}
-        <Button variant="secondary" onClick={() => {
+        <Button variant="secondary" className="border border-line bg-card" onClick={() => {
           setTwinName(`${String(event.name)} — second tirage`.slice(0, 80));
           setTwinError("");
           setTwinOpen(true);
