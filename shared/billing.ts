@@ -106,7 +106,7 @@ export const WITHDRAWAL_MS = 14 * 24 * 60 * 60 * 1000;
 
 export const billingPolicy = {
   provider: "mollie" as const,
-  realChargesEnabled: false,
+  realChargesEnabled: true,
   taxRegime: "franchise_base" as const,
   taxNote: `${publisher.taxMention}. Les prix affichés sont les montants finaux. Aucune TVA n'est ajoutée.`,
   promise: "Un paiement par événement. Aucun abonnement. Les participants ne paient jamais.",
@@ -299,8 +299,7 @@ export function readMolliePayment(payload: {
   amountRefunded?: { value?: unknown };
   metadata?: { paymentId?: unknown };
 }): { ok: true; reading: MollieReading } | { ok: false; reason: string } {
-  if (payload.mode === "live") return { ok: false, reason: "Paiement réel refusé." };
-  if (payload.mode !== "test") return { ok: false, reason: "Mode de paiement inattendu." };
+  if (payload.mode !== "live" && payload.mode !== "test") return { ok: false, reason: "Mode de paiement inattendu." };
   const providerRef = String(payload.id ?? "");
   const paymentId = String(payload.metadata?.paymentId ?? "");
   if (!/^tr_[A-Za-z0-9]+$/.test(providerRef) || !paymentId) return { ok: false, reason: "Paiement sans référence de commande." };

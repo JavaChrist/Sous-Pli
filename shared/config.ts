@@ -37,8 +37,8 @@ export const limits = {
 export const billingConfig = {
   enabled: false,
   provider: "mollie" as const,
-  realChargesEnabled: false,
+  realChargesEnabled: true,
   taxRegime: "franchise_base" as const,
   statement:
-    "Un paiement par événement. Aucun abonnement. Les participants ne paient jamais. Les paiements réels ne sont pas activés : seule une clé de test Mollie, absente par défaut, peut ouvrir le prestataire.",
+    "Un paiement par événement. Aucun abonnement. Les participants ne paient jamais. Le paiement est encaissé par Mollie.",
 } as const;

@@ -81,7 +81,7 @@ export const createCheckout = callable(async (request, uid) => {
   }
   const mode = checkoutMode();
   if (mode === "missing") {
-    throw new HttpsError("failed-precondition", "Mollie n'est pas configuré en mode test. Aucun paiement n'a été créé.");
+    throw new HttpsError("failed-precondition", "Mollie n'est pas configuré. Aucun paiement n'a été créé.");
   }
   const existing = await db.collection("payments").where("eventId", "==", eventId).where("status", "==", "pending").limit(5).get();
   const reusable = existing.docs.find((doc) => Number(doc.data().amountCents) === due.cents && doc.data().offerId === commercial.offerId);
@@ -344,15 +344,16 @@ export const mollieWebhook = onRequest({ region: "europe-west1", cors: false, me
 
 function checkoutMode(): "mollie" | "test" | "missing" {
   const key = process.env.MOLLIE_API_KEY || "";
-  if (key.startsWith("live_")) return "missing";
-  if (key.startsWith("test_")) return "mollie";
+  if (key.startsWith("live_") || key.startsWith("test_")) return "mollie";
   if (process.env.FUNCTIONS_EMULATOR === "true") return "test";
   return "missing";
 }
 
 function mollieKey(): string {
   const key = process.env.MOLLIE_API_KEY || "";
-  if (!key.startsWith("test_")) throw new HttpsError("failed-precondition", "La clé Mollie de test est absente. Aucun paiement réel n'est ouvert.");
+  if (!key.startsWith("live_") && !key.startsWith("test_")) {
+    throw new HttpsError("failed-precondition", "La clé Mollie est absente. Aucun paiement n'a été créé.");
+  }
   return key;
 }
 

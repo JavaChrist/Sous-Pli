@@ -96,7 +96,7 @@ describe("catalogue", () => {
     expect(centsToMollieValue(1990)).toBe("19.90");
     expect(mollieValueToCents("19.90")).toBe(1990);
     expect(billingPolicy.taxNote).toMatch(/293 B/);
-    expect(billingPolicy.realChargesEnabled).toBe(false);
+    expect(billingPolicy.realChargesEnabled).toBe(true);
     const paid = readMolliePayment({
       id: "tr_testpayment12",
       mode: "test",
@@ -107,7 +107,9 @@ describe("catalogue", () => {
     });
     expect(paid.ok && paid.reading.outcome).toBe("succeeded");
     const live = readMolliePayment({ id: "tr_testpayment12", mode: "live", status: "paid", amount: { value: "19.90", currency: "EUR" }, metadata: { paymentId: "commande-1" } });
-    expect(live.ok).toBe(false);
+    expect(live.ok && live.reading.outcome).toBe("succeeded");
+    const unknown = readMolliePayment({ id: "tr_testpayment12", mode: "other", status: "paid", amount: { value: "19.90", currency: "EUR" }, metadata: { paymentId: "commande-1" } });
+    expect(unknown.ok).toBe(false);
     const again = readMolliePayment({
       id: "tr_testpayment12",
       mode: "test",

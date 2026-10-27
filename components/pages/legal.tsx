@@ -46,7 +46,7 @@ export function MentionsDocument() {
       <Section title="Prestataires techniques">
         <p>{processors.firebase}</p>
         <p>E-mails transactionnels : {processors.resend.name}, {processors.resend.address}, {processors.resend.site}. Sans clé d'envoi configurée, les messages sont conservés localement et ne partent pas.</p>
-        <p>Paiement : {processors.mollie.name}, {processors.mollie.address}, registre néerlandais {processors.mollie.register}, {processors.mollie.site}. Les numéros de carte ne sont pas stockés dans Sous pli. Les débits réels ne sont pas activés.</p>
+        <p>Paiement : {processors.mollie.name}, {processors.mollie.address}, registre néerlandais {processors.mollie.register}, {processors.mollie.site}. Les numéros de carte ne sont pas stockés dans Sous pli. Le paiement est encaissé par Mollie.</p>
       </Section>
       <Section title="Propriété intellectuelle">
         <p>Les textes, la présentation, l'identité visuelle et le code de Sous pli sont protégés dans les conditions de la loi. Sous pli n'est pas présenté comme une marque déposée. Les utilisateurs conservent leurs droits sur leurs contenus. L'usage du service ne transfère aucun droit de propriété intellectuelle.</p>
@@ -91,7 +91,7 @@ export function PrivacyDocument() {
       <Section title="5. Prestataires et transferts">
         <p>{processors.firebase} L'authentification Firebase est exécutée uniquement depuis des centres situés aux États-Unis. Les fonctions sont prévues en europe-west1. La région de la base et des fichiers est celle du projet. Cela ne signifie pas que toutes les données restent dans l'Union européenne.</p>
         <p>Hébergement de l'application : {hosting.application.name}, {hosting.application.address}. Nom de domaine : {hosting.domain.name}, qui n'héberge pas l'application.</p>
-        <p>E-mails : {processors.resend.name}, {processors.resend.address}. Ce prestataire figure au Data Privacy Framework sous le nom Plus Five Five. Paiement de test : {processors.mollie.name}, {processors.mollie.address}. Les garanties de transfert sont celles des contrats conclus avec ces prestataires. Aucun outil de mesure d'audience ni notification push du système n'est activé.</p>
+        <p>E-mails : {processors.resend.name}, {processors.resend.address}. Ce prestataire figure au Data Privacy Framework sous le nom Plus Five Five. Paiement : {processors.mollie.name}, {processors.mollie.address}. Les garanties de transfert sont celles des contrats conclus avec ces prestataires. Aucun outil de mesure d'audience ni notification push du système n'est activé.</p>
       </Section>
       <Section title="6. Durées">
         <p>L'accès à un événement dure pendant sa préparation et jusqu'à douze mois après sa date, dans le fuseau de l'événement. Un avertissement est prévu trente jours avant la suppression. Un report de date ne repousse pas la fin d'accès déjà fixée. Le maintien du compte ne prolonge pas les messages.</p>
@@ -160,7 +160,7 @@ export function TermsDocument() {
       <Section title="5. Commande et durée">
         <p>Le prix, la capacité et la fin d'accès sont fixés par le serveur et rappelés avant la commande, avec la version des conditions. Le retour du navigateur ne débloque pas l'offre. Aucune donnée de carte n'est stockée. Un paiement échoué, annulé ou expiré laisse l'événement en place. Le paiement ne lance pas le tirage.</p>
         <p>L'accès court pendant la préparation et jusqu'à douze mois après la date de l'événement, dans son fuseau. Cette fin est conservée avec la commande. Un report ne la repousse pas. L'archivage n'est pas une conservation illimitée.</p>
-        <p>Les débits réels ne sont pas ouverts. Mollie peut être utilisé en mode test. {billingPolicy.invoiceNote}</p>
+        <p>Le paiement est encaissé par Mollie. {billingPolicy.invoiceNote}</p>
       </Section>
       <Section title="6. Rétractation">
         <p>{billingPolicy.withdrawalNote}</p>
@@ -222,7 +222,7 @@ export function ProcessingAnnex() {
         <p>Les personnes voient les informations selon le mode choisi. Les personnes habilitées au support et à la sécurité y accèdent de façon limitée. Il n'y a pas de chiffrement de bout en bout ni d'anonymat absolu.</p>
       </Section>
       <Section title="Sous-traitants ultérieurs">
-        <p>{processors.firebase} Hébergement de l'application : {hosting.application.name}. E-mails : {processors.resend.name}. Paiement, en mode test : {processors.mollie.name}. Le nom de domaine est géré par {hosting.domain.name}, qui n'héberge pas l'application.</p>
+        <p>{processors.firebase} Hébergement de l'application : {hosting.application.name}. E-mails : {processors.resend.name}. Paiement : {processors.mollie.name}. Le nom de domaine est géré par {hosting.domain.name}, qui n'héberge pas l'application.</p>
         <p>L'authentification Firebase est traitée aux États-Unis. Les autres traitements ne sont pas présentés comme exclusivement européens. Les transferts reposent sur les contrats de ces prestataires.</p>
       </Section>
       <Section title="Fin de traitement">
