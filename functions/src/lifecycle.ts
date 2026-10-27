@@ -3,7 +3,7 @@ import { Timestamp } from "firebase-admin/firestore";
 import { CATALOG, readCommercial } from "../../shared/billing";
 import { accessEndInstant } from "../../shared/retention";
 import { canTransition, type EventStatus, type Exclusion } from "../../shared/domain";
-import { appOrigin, callable, db, newId, stamp, userName } from "./admin";
+import { appOrigin, bucket, callable, db, newId, stamp, userName } from "./admin";
 import { audit } from "./audit";
 import { readMembers, readPrivate, requireOrganizer } from "./events";
 import { queueEmail } from "./mail";
@@ -176,16 +176,25 @@ export const deleteEvent = callable(async (request, uid) => {
   const eventId = String((request.data as { eventId?: string })?.eventId ?? "");
   const confirmName = String((request.data as { confirmName?: string })?.confirmName ?? "");
   const { ref, data } = await requireOrganizer(eventId, uid);
+  if (data.organizerUid !== uid) {
+    throw new HttpsError("permission-denied", "Seul l'organisateur principal peut supprimer l'échange.");
+  }
   if (!["draft", "cancelled"].includes(String(data.status))) {
     throw new HttpsError("failed-precondition", "Annulez l'échange avant de le supprimer.");
   }
   if (confirmName.trim() !== String(data.name)) {
     throw new HttpsError("failed-precondition", "Saisissez le nom exact de l'échange pour confirmer la suppression.");
   }
+  const cos = await ref.collection("coOrganizers").get();
+  for (const co of cos.docs) {
+    await db.collection("users").doc(co.id).collection("coEvents").doc(eventId).delete();
+  }
   const tokens = await db.collection("invitationTokens").where("eventId", "==", eventId).get();
   for (const doc of tokens.docs) await doc.ref.delete();
   const codes = await db.collection("joinCodes").where("eventId", "==", eventId).get();
   for (const doc of codes.docs) await doc.ref.delete();
+  const [files] = await bucket.getFiles({ prefix: `events/${eventId}/`, maxResults: 100, autoPaginate: false });
+  await Promise.all(files.map((file) => file.delete({ ignoreNotFound: true })));
   await db.recursiveDelete(ref);
   return { ok: true };
 });

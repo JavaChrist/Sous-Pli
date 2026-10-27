@@ -512,6 +512,9 @@ function Dashboard({ eventId }: { eventId: string }) {
   const [twinError, setTwinError] = useState("");
   const [payOpen, setPayOpen] = useState(false);
   const [promptPending, setPromptPending] = useState(false);
+  const [deleteOpen, setDeleteOpen] = useState(false);
+  const [deleteName, setDeleteName] = useState("");
+  const [deleteError, setDeleteError] = useState("");
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     if (params.get("paiement") !== "1") return;
@@ -599,11 +602,15 @@ function Dashboard({ eventId }: { eventId: string }) {
           setTwinError("");
           setTwinOpen(true);
         }}>Second tirage</Button>
-        <Button variant="danger" onClick={async () => {
-          const accepted = await confirm({ title: "Annuler l'échange ?", description: `Saisissez ensuite le nom « ${String(event.name)} » dans la confirmation du serveur.`, confirmLabel: "Continuer", danger: true });
-          if (!accepted) return;
-          try { await call("cancelEvent", { eventId, confirmName: event.name }); toast("Échange annulé"); } catch (caught) { setError(errorText(caught)); }
-        }}>Annuler</Button>
+        {status === "cancelled" ? (
+          <Button variant="danger" onClick={() => { setDeleteName(""); setDeleteError(""); setDeleteOpen(true); }}>Supprimer</Button>
+        ) : (
+          <Button variant="danger" onClick={async () => {
+            const accepted = await confirm({ title: "Annuler l'échange ?", description: `Saisissez ensuite le nom « ${String(event.name)} » dans la confirmation du serveur.`, confirmLabel: "Continuer", danger: true });
+            if (!accepted) return;
+            try { await call("cancelEvent", { eventId, confirmName: event.name }); toast("Échange annulé"); } catch (caught) { setError(errorText(caught)); }
+          }}>Annuler</Button>
+        )}
       </div>
       {status === "drawn" ? <LateRoster eventId={eventId} /> : null}
       <PracticalForm eventId={eventId} place={String(event.place ?? "")} rulesText={String(event.rulesText ?? "")} description={String(event.description ?? "")} />
@@ -626,6 +633,34 @@ function Dashboard({ eventId }: { eventId: string }) {
         }}>Créer le second tirage</Button>
       </Modal>
       <PaymentPrompt eventId={eventId} open={payOpen} onOpenChange={setPayOpen} />
+      <Modal open={deleteOpen} onOpenChange={setDeleteOpen} title="Supprimer l'échange ?" description="La suppression est définitive. Les participants ne voient plus cet échange. Les enregistrements de paiement restent conservés." busy={busy}>
+        <Field label={`Saisissez « ${String(event.name)} »`}>
+          <TextInput value={deleteName} onChange={(input) => setDeleteName(input.target.value)} autoComplete="off" />
+        </Field>
+        {deleteError ? <p className="mt-3 text-sm text-burgundy">{deleteError}</p> : null}
+        <div className="mt-4 flex flex-wrap justify-end gap-2">
+          <Button type="button" variant="secondary" onClick={() => setDeleteOpen(false)}>Retour</Button>
+          <Button
+            type="button"
+            variant="danger"
+            busy={busy}
+            disabled={deleteName.trim() !== String(event.name)}
+            onClick={async () => {
+              setBusy(true);
+              setDeleteError("");
+              try {
+                await call("deleteEvent", { eventId, confirmName: deleteName.trim() });
+                window.location.href = "/evenements";
+              } catch (caught) {
+                setDeleteError(errorText(caught));
+                setBusy(false);
+              }
+            }}
+          >
+            Supprimer
+          </Button>
+        </div>
+      </Modal>
     </div>
   );
 }
