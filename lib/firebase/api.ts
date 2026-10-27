@@ -19,6 +19,9 @@ function authMessage(code: string): string | null {
   if (code === "auth/weak-password") return "Le mot de passe est trop faible.";
   if (code === "auth/too-many-requests") return "Trop de tentatives. Réessaie dans un instant.";
   if (code === "auth/network-request-failed") return "Le service d'authentification est injoignable.";
+  if (code === "permission-denied" || code.endsWith("/permission-denied")) {
+    return "Cette lecture n'est pas autorisée.";
+  }
   return null;
 }
 

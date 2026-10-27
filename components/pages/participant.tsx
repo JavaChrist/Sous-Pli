@@ -32,9 +32,10 @@ function List() {
   return (
     <div className="space-y-4">
       <h1 className="font-serif text-4xl text-pine-deep">Mes participations</h1>
+      <p className="text-sm text-muted">Les échanges rejoints avec ce compte apparaissent ici. Les personnes ajoutées à un tirage que vous organisez sont dans Événements.</p>
       {error ? <ErrorState>{error}</ErrorState> : null}
       {rows === null && !error ? <LoadingState /> : null}
-      {rows?.length === 0 ? <EmptyState title="Aucune participation">Acceptez une invitation ou demandez à rejoindre un groupe.</EmptyState> : null}
+      {rows?.length === 0 ? <EmptyState title="Aucune participation">Acceptez une invitation pour qu'un échange apparaisse ici. Les personnes déjà saisies dans un tirage restent dans Événements.</EmptyState> : null}
       {rows?.map((row) => (
         <Link key={`${row.eventId}-${row.id}`} href={`/participations/${row.eventId}`} className="block rounded-3xl border border-line bg-card p-5">
           <h2 className="font-serif text-2xl">{row.eventName}</h2>

@@ -84,9 +84,9 @@ service cloud.firestore {
         allow read: if canOperate(eventId);
         allow write: if false;
       }
-      match /memberIndex/{uid} {
-        allow get: if isOwner(uid) || canOperate(eventId);
-        allow list: if canOperate(eventId) || (signedIn() && resource.data.uid == request.auth.uid);
+      match /memberIndex/{indexId} {
+        allow get: if isOwner(indexId) || canOperate(eventId);
+        allow list: if canOperate(eventId);
         allow write: if false;
       }
       match /constraints/{constraintId} {
@@ -135,6 +135,13 @@ service cloud.firestore {
         allow read: if canOperate(eventId);
         allow write: if false;
       }
+    }
+
+    // La page Participations interroge tous les memberIndex du compte.
+    // Cette règle ne relit pas l'événement : un get() dans la règle imbriquée
+    // fait refuser la requête de groupe par Firestore.
+    match /{path=**}/memberIndex/{indexId} {
+      allow read: if signedIn() && resource.data.uid == request.auth.uid;
     }
 
     match /invitationTokens/{tokenId} {

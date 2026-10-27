@@ -62,6 +62,22 @@ test("chacun ne lit que sa propre attribution", async () => {
   await assertFails(env.authenticatedContext("orga0001").firestore().doc("users/member01/assignments/event0001").get());
 });
 
+test("chacun lit ses participations, pas celles d'un autre", async () => {
+  await env.withSecurityRulesDisabled(async (context) => {
+    await context.firestore().doc("events/event0001/memberIndex/member01").set({
+      uid: "member01",
+      memberId: "mem00001",
+      updatedAt: new Date(),
+    });
+  });
+  const mine = env.authenticatedContext("member01").firestore().collectionGroup("memberIndex").where("uid", "==", "member01").orderBy("updatedAt", "desc");
+  await assertSucceeds(mine.get());
+  const foreign = env.authenticatedContext("autre0001").firestore().collectionGroup("memberIndex").where("uid", "==", "member01");
+  await assertFails(foreign.get());
+  await assertSucceeds(env.authenticatedContext("orga0001").firestore().collection("events/event0001/memberIndex").get());
+  await assertFails(env.authenticatedContext("autre0001").firestore().doc("events/event0001/memberIndex/member01").get());
+});
+
 test("une notification ne peut changer que le marqueur lu", async () => {
   const ref = env.authenticatedContext("member01").firestore().doc("users/member01/notifications/note0001");
   await assertSucceeds(ref.update({ read: true }));
