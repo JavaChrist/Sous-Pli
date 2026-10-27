@@ -8,6 +8,7 @@ import { RequireAuth } from "@/components/require-auth";
 import { useToast } from "@/components/providers";
 import { Button, ButtonLink } from "@/components/ui/button";
 import { Field, SelectInput, TextArea, TextInput } from "@/components/ui/field";
+import { Modal } from "@/components/ui/modal";
 import { ErrorState, LoadingState } from "@/components/ui/states";
 import { call, errorText } from "@/lib/firebase/api";
 import { getDb } from "@/lib/firebase/client";
@@ -117,7 +118,40 @@ export function CheckoutPage({ eventId }: { eventId: string }) {
   return <RequireAuth><Checkout eventId={eventId} /></RequireAuth>;
 }
 
-function Checkout({ eventId }: { eventId: string }) {
+export function PaymentPrompt({
+  eventId,
+  open,
+  onOpenChange,
+}: {
+  eventId: string;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+}) {
+  const [busy, setBusy] = useState(false);
+  return (
+    <Modal
+      open={open}
+      onOpenChange={onOpenChange}
+      title="Paiement"
+      description="L'événement est enregistré. Fermer cette fenêtre reporte le paiement. Le tirage attend la confirmation du serveur."
+      busy={busy}
+    >
+      {open ? <Checkout eventId={eventId} embedded onLater={() => onOpenChange(false)} onBusy={setBusy} /> : null}
+    </Modal>
+  );
+}
+
+function Checkout({
+  eventId,
+  embedded = false,
+  onLater,
+  onBusy,
+}: {
+  eventId: string;
+  embedded?: boolean;
+  onLater?: () => void;
+  onBusy?: (busy: boolean) => void;
+}) {
   const toast = useToast();
   const [event, setEvent] = useState<Record<string, unknown> | null>(null);
   const [offerId, setOfferId] = useState<OfferId>("family");
@@ -126,6 +160,10 @@ function Checkout({ eventId }: { eventId: string }) {
   const [error, setError] = useState("");
   const [info, setInfo] = useState("");
   const [busy, setBusy] = useState(false);
+  function setPaying(next: boolean) {
+    setBusy(next);
+    onBusy?.(next);
+  }
   useEffect(() => onSnapshot(doc(getDb(), "events", eventId), (snap) => {
     if (!snap.exists()) {
       setError("Échange introuvable.");
@@ -143,9 +181,9 @@ function Checkout({ eventId }: { eventId: string }) {
   const selected = CATALOG[offerId];
   const due = amountDue({ offerId, paidOfferId: readCommercial(event).paidOfferId, eventStatus: String(event.status ?? "draft") });
   return (
-    <form className="mx-auto max-w-2xl space-y-4" onSubmit={async (formEvent) => {
+    <form className={embedded ? "space-y-4" : "mx-auto max-w-2xl space-y-4"} onSubmit={async (formEvent) => {
       formEvent.preventDefault();
-      setBusy(true);
+      setPaying(true);
       setError("");
       try {
         await call("selectOffer", { eventId, offerId });
@@ -164,17 +202,17 @@ function Checkout({ eventId }: { eventId: string }) {
       } catch (caught) {
         setError(errorText(caught));
       } finally {
-        setBusy(false);
+        setPaying(false);
       }
     }}>
-      <h1 className="font-serif text-4xl text-pine-deep">Offre et paiement</h1>
+      {embedded ? null : <h1 className="font-serif text-4xl text-pine-deep">Offre et paiement</h1>}
       <p className="text-sm text-muted">{String(event.name)} · {billingPolicy.promise}</p>
       <Field label="Offre">
         <SelectInput value={offerId} onChange={(input) => { setOfferId(input.target.value as OfferId); setAccepted(false); setAcceptedProcessing(false); }}>
           {choices.map((offer) => <option key={offer.id} value={offer.id}>{offer.title} — {priceLabel(offer.id)} — {offer.capacity ? `${offer.capacity} participants` : "plus de 300"}</option>)}
         </SelectInput>
       </Field>
-      <div className="rounded-3xl border border-line bg-card p-5 text-sm">
+      <div className={embedded ? "space-y-1 text-sm" : "rounded-3xl border border-line bg-card p-5 text-sm"}>
         <p>Événement : {String(event.name)}</p>
         <p>Offre : {selected.title}</p>
         <p>Capacité : {selected.capacity ? `${selected.capacity} participants` : "sur devis, au-delà de 300"}</p>
@@ -199,7 +237,10 @@ function Checkout({ eventId }: { eventId: string }) {
       ) : null}
       {error ? <p className="text-sm text-burgundy">{error}</p> : null}
       {info ? <p className="text-sm text-pine">{info}</p> : null}
-      <Button type="submit" busy={busy} disabled={due.cents > 0 && (!accepted || (context === "organization" && !acceptedProcessing))}>Continuer</Button>
+      <div className="flex flex-wrap justify-end gap-2">
+        {onLater ? <Button type="button" variant="secondary" onClick={onLater} disabled={busy}>Plus tard</Button> : null}
+        <Button type="submit" busy={busy} disabled={due.cents > 0 && (!accepted || (context === "organization" && !acceptedProcessing))}>Continuer</Button>
+      </div>
       <p className="text-sm text-muted">{billingPolicy.invoiceNote}</p>
     </form>
   );

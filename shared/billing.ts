@@ -154,6 +154,12 @@ export function priceLabel(offerId: OfferId): string {
   return `${formatEuros(price)} par événement`;
 }
 
+/** Vrai pour une offre à prix fixe. Famille et le devis n'ouvrent pas le paiement. */
+export function asksPayment(offerId: OfferId): boolean {
+  const price = CATALOG[offerId].priceCents;
+  return typeof price === "number" && price > 0;
+}
+
 export interface CommercialSnapshot {
   offerId: OfferId;
   status: CommercialStatus;

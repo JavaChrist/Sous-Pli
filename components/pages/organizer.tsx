@@ -14,8 +14,8 @@ import { call, errorText } from "@/lib/firebase/api";
 import { getBucket, getDb } from "@/lib/firebase/client";
 import { formatWhen, statusLabel } from "@/lib/format";
 import { eventInputSchema } from "@shared/schemas";
-import { CATALOG, defaultOffer, emailOfferRights, priceLabel, readCommercial } from "@shared/billing";
-import { CoOrganizers, TeamProgress } from "@/components/pages/billing";
+import { CATALOG, amountDue, asksPayment, defaultOffer, emailOfferRights, priceLabel, readCommercial } from "@shared/billing";
+import { CoOrganizers, PaymentPrompt, TeamProgress } from "@/components/pages/billing";
 import { CONTEXT_LABELS, JOIN_LABELS, OCCASION_LABELS, PRIVACY_LABELS } from "@shared/domain";
 import { mapTabular } from "@shared/import-table";
 import { mergeParticipants, type RosterPerson } from "@shared/roster";
@@ -135,7 +135,8 @@ function Wizard() {
       await call("setMembers", { eventId: created.eventId, members: draft.members });
       clearDraft();
       toast("Échange enregistré. Aucune invitation n'a été envoyée.");
-      window.location.href = `/evenements/${created.eventId}`;
+      const payment = asksPayment(draft.offerId) ? "?paiement=1" : "";
+      window.location.href = `/evenements/${created.eventId}${payment}`;
     } catch (caught) {
       setError(errorText(caught));
     } finally {
@@ -175,7 +176,7 @@ function Wizard() {
       {step === 1 ? (
         <div className="space-y-3 rounded-3xl border border-line bg-card p-5">
           <h2 className="font-serif text-2xl">Offre</h2>
-          <p className="text-sm text-muted">Un paiement par événement, sans abonnement. Les participants ne paient jamais. Une organisation peut préparer le brouillon avant de payer. Le tirage d'une offre payante attend la confirmation serveur.</p>
+          <p className="text-sm text-muted">Un paiement par événement, sans abonnement. Les participants ne paient jamais. Le brouillon se termine d'abord. À l'enregistrement, le paiement d'une offre payante s'ouvre tout seul. Le tirage attend la confirmation serveur.</p>
           <Field label="Formule">
             <SelectInput value={draft.offerId} onChange={(event) => setDraft({ ...draft, offerId: event.target.value as EventDraft["offerId"] })}>
               {Object.values(CATALOG).filter((offer) => offer.contexts.includes(draft.context)).map((offer) => (
@@ -224,7 +225,7 @@ function Wizard() {
       {error ? <p className="text-sm text-burgundy">{error}</p> : null}
       <div className="flex flex-wrap justify-between gap-2">
         <Button variant="secondary" disabled={step === 0} onClick={() => setStep((value) => value - 1)}>Retour</Button>
-        {step < 3 ? <Button onClick={() => setStep((value) => value + 1)}>Continuer</Button> : <Button busy={busy} onClick={() => void save()}>Enregistrer le brouillon</Button>}
+        {step < 3 ? <Button onClick={() => setStep((value) => value + 1)}>Continuer</Button> : <Button busy={busy} onClick={() => void save()}>{asksPayment(draft.offerId) ? "Enregistrer et payer" : "Enregistrer le brouillon"}</Button>}
       </div>
     </div>
   );
@@ -455,10 +456,27 @@ function Dashboard({ eventId }: { eventId: string }) {
   const [twinOpen, setTwinOpen] = useState(false);
   const [twinName, setTwinName] = useState("");
   const [twinError, setTwinError] = useState("");
+  const [payOpen, setPayOpen] = useState(false);
+  const [promptPending, setPromptPending] = useState(false);
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("paiement") !== "1") return;
+    params.delete("paiement");
+    const query = params.toString();
+    window.history.replaceState(null, "", `${window.location.pathname}${query ? `?${query}` : ""}${window.location.hash}`);
+    setPromptPending(true);
+  }, []);
   useEffect(() => onSnapshot(doc(getDb(), "events", eventId), (snap) => {
     if (!snap.exists()) setError("Accès refusé ou échange introuvable.");
     else { setError(""); setEvent({ id: snap.id, ...snap.data() }); }
   }, (caught) => setError(errorText(caught))), [eventId, user?.uid]);
+  useEffect(() => {
+    if (!promptPending || !event) return;
+    const commercial = readCommercial(event);
+    const due = amountDue({ offerId: commercial.offerId, paidOfferId: commercial.paidOfferId, eventStatus: String(event.status ?? "draft") });
+    setPromptPending(false);
+    if (due.cents > 0) setPayOpen(true);
+  }, [promptPending, event]);
 
   async function launch() {
     const accepted = await confirm({
@@ -499,7 +517,7 @@ function Dashboard({ eventId }: { eventId: string }) {
         <ButtonLink variant="secondary" className="w-full justify-start" href={`/evenements/${eventId}/exclusions`}>Règles et exclusions</ButtonLink>
         <ButtonLink variant="secondary" className="w-full justify-start" href={`/evenements/${eventId}/invitations`}>Invitations</ButtonLink>
         <ButtonLink variant="secondary" className="w-full justify-start" href={`/evenements/${eventId}/courriels`}>E-mails</ButtonLink>
-        <ButtonLink variant="secondary" className="w-full justify-start" href={`/evenements/${eventId}/reglement`}>Offre et paiement</ButtonLink>
+        <Button type="button" variant="secondary" className="w-full justify-start" onClick={() => setPayOpen(true)}>Offre et paiement</Button>
         <ButtonLink variant="secondary" className="w-full justify-start" href={`/participations/${eventId}`}>Mon espace</ButtonLink>
         <ButtonLink variant="secondary" className="w-full justify-start" href={`/participations/${eventId}/jour-j`}>Jour J</ButtonLink>
       </div>
@@ -544,13 +562,15 @@ function Dashboard({ eventId }: { eventId: string }) {
           setTwinError("");
           try {
             const created = await call<{ eventId: string }>("duplicateEvent", { eventId, name: twinName.trim() });
-            window.location.href = `/evenements/${created.eventId}`;
+            const payment = asksPayment(commercial.offerId) ? "?paiement=1" : "";
+            window.location.href = `/evenements/${created.eventId}${payment}`;
           } catch (caught) {
             setTwinError(errorText(caught));
             setBusy(false);
           }
         }}>Créer le second tirage</Button>
       </Modal>
+      <PaymentPrompt eventId={eventId} open={payOpen} onOpenChange={setPayOpen} />
     </div>
   );
 }

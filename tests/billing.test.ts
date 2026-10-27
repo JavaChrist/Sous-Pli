@@ -2,6 +2,7 @@ import { describe, expect, test } from "vitest";
 import {
   UPGRADE_BUSINESS_TO_PLUS_CENTS,
   amountDue,
+  asksPayment,
   billingPolicy,
   canSubmitRefund,
   centsToMollieValue,
@@ -18,6 +19,14 @@ import {
 } from "../shared/billing";
 
 describe("catalogue", () => {
+  test("seule une offre à prix fixe ouvre le paiement à la création", () => {
+    expect(asksPayment("family")).toBe(false);
+    expect(asksPayment("quote")).toBe(false);
+    expect(asksPayment("association")).toBe(true);
+    expect(asksPayment("business")).toBe(true);
+    expect(asksPayment("business_plus")).toBe(true);
+  });
+
   test("les prix affichés sont les montants finaux en euros", () => {
     const money = (cents: number) => formatEuros(cents).replace(/\s/g, " ");
     expect(money(0)).toBe("0,00 €");
