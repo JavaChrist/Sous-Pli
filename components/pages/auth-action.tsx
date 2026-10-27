@@ -1,10 +1,9 @@
 "use client";
 
 import { applyActionCode, checkActionCode, confirmPasswordReset } from "firebase/auth";
-import Link from "next/link";
 import { useEffect, useState, type FormEvent } from "react";
 import { useSensitive } from "@/components/providers";
-import { Button } from "@/components/ui/button";
+import { Button, ButtonLink } from "@/components/ui/button";
 import { Field, PasswordInput } from "@/components/ui/field";
 import { call } from "@/lib/firebase/api";
 import { getFirebaseAuth } from "@/lib/firebase/client";
@@ -110,7 +109,7 @@ export function AuthActionScreen({ mode, code }: { mode: string; code: string })
           <Button type="submit" busy={busy}>Enregistrer le mot de passe</Button>
         </form>
       ) : null}
-      <Link className="text-sm text-pine" href="/connexion">Retour à la connexion</Link>
+      <ButtonLink variant="secondary" href="/connexion">Retour à la connexion</ButtonLink>
     </div>
   );
 }

@@ -36,10 +36,10 @@ function Notifications() {
           <h2 className="font-semibold">{row.title}</h2>
           <p className="text-sm text-muted">{row.body}</p>
           {row.read ? <p className="mt-2 text-xs text-muted">Lue</p> : (
-            <button type="button" className="mt-2 text-sm font-semibold text-pine" onClick={() => {
+            <Button type="button" variant="secondary" className="mt-2" onClick={() => {
               if (!user) return;
               void updateDoc(doc(getDb(), "users", user.uid, "notifications", row.id), { read: true });
-            }}>Marquer comme lue</button>
+            }}>Marquer comme lue</Button>
           )}
         </article>
       ))}

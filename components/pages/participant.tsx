@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { RequireAuth } from "@/components/require-auth";
 import { useAuth, useToast } from "@/components/providers";
-import { Button } from "@/components/ui/button";
+import { Button, ButtonLink } from "@/components/ui/button";
 import { Field, SelectInput, TextArea, TextInput } from "@/components/ui/field";
 import { Modal } from "@/components/ui/modal";
 import { EmptyState, ErrorState, LoadingState } from "@/components/ui/states";
@@ -73,10 +73,10 @@ function Home({ eventId }: { eventId: string }) {
       {String(event?.privacyMode) === "double_blind" ? <p className="rounded-2xl bg-card p-4 text-sm text-muted">En double mystère, le nom reste masqué jusqu'à la révélation collective. Un texte ou une photo peut malgré tout permettre de deviner une personne.</p> : null}
       <div className="flex flex-wrap gap-2">
         <Button onClick={async () => { try { await call("markDiscovered", { eventId }); setOpen(true); } catch (caught) { setError(errorText(caught)); } }}>Découvrir mon destinataire</Button>
-        <Link className="rounded-full border border-line px-4 py-2 text-sm" href={`/participations/${eventId}/souhaits`}>Souhaits</Link>
-        <Link className="rounded-full border border-line px-4 py-2 text-sm" href={`/participations/${eventId}/idees`}>Idées cadeau</Link>
-        <Link className="rounded-full border border-line px-4 py-2 text-sm" href={`/participations/${eventId}/messages`}>Messages</Link>
-        <Link className="rounded-full border border-line px-4 py-2 text-sm" href={`/participations/${eventId}/jour-j`}>Jour J</Link>
+        <ButtonLink variant="secondary" href={`/participations/${eventId}/souhaits`}>Souhaits</ButtonLink>
+        <ButtonLink variant="secondary" href={`/participations/${eventId}/idees`}>Idées cadeau</ButtonLink>
+        <ButtonLink variant="secondary" href={`/participations/${eventId}/messages`}>Messages</ButtonLink>
+        <ButtonLink variant="secondary" href={`/participations/${eventId}/jour-j`}>Jour J</ButtonLink>
       </div>
       {!assignment && String(event?.status) === "drawn" ? <p className="text-sm text-muted">Votre résultat est en cours de publication.</p> : null}
       <Modal open={open} onOpenChange={setOpen} title="Votre destinataire" description="Vous pouvez masquer de nouveau cet écran.">
@@ -85,7 +85,7 @@ function Home({ eventId }: { eventId: string }) {
         </div>
         <Button className="mt-4" variant="secondary" onClick={() => setOpen(false)}>Masquer</Button>
       </Modal>
-      <button type="button" className="text-sm text-pine" onClick={() => toast("Le résultat est masqué sur cet écran.")}>Le résultat n'est pas affiché en permanence.</button>
+      <Button type="button" variant="ghost" onClick={() => toast("Le résultat est masqué sur cet écran.")}>Le résultat n'est pas affiché en permanence.</Button>
     </div>
   );
 }
@@ -236,12 +236,12 @@ function Ideas({ eventId }: { eventId: string }) {
           {board.mine.map((idea) => (
             <li key={idea.id} className="flex items-center justify-between gap-3 rounded-2xl bg-cream px-3 py-2">
               <span>Pour {nameOf(idea.aboutMemberId)} : {idea.text}</span>
-              <button type="button" className="text-burgundy" onClick={async () => {
+              <Button type="button" variant="danger" onClick={async () => {
                 try {
                   await call("deleteGiftIdea", { eventId, ideaId: idea.id });
                   await reload();
                 } catch (caught) { setError(errorText(caught)); }
-              }}>Retirer</button>
+              }}>Retirer</Button>
             </li>
           ))}
         </ul>
@@ -368,7 +368,7 @@ export function InvitationPage({ token }: { token: string }) {
       <div className="flex flex-wrap gap-2">
         <Button busy={busy} onClick={() => void accept(false)} disabled={!user}>Accepter avec ce compte</Button>
         <Button busy={busy} variant="secondary" onClick={() => void accept(true)}>Continuer sans créer de compte</Button>
-        <Link href="/connexion" className="rounded-full border border-line px-4 py-2 text-sm">Se connecter</Link>
+        <ButtonLink variant="secondary" href="/connexion">Se connecter</ButtonLink>
       </div>
       <p className="text-sm text-muted">Sans compte, la session reste dans ce navigateur jusqu'à ce que vous ajoutiez une adresse.</p>
     </article>

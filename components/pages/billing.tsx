@@ -6,7 +6,7 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { RequireAuth } from "@/components/require-auth";
 import { useToast } from "@/components/providers";
-import { Button } from "@/components/ui/button";
+import { Button, ButtonLink } from "@/components/ui/button";
 import { Field, SelectInput, TextArea, TextInput } from "@/components/ui/field";
 import { ErrorState, LoadingState } from "@/components/ui/states";
 import { call, errorText } from "@/lib/firebase/api";
@@ -62,7 +62,7 @@ export function PricingPage() {
         Le contexte déclaré oriente les offres. Il n'est pas vérifié automatiquement.
         Les thèmes gratuits sont des modèles prêts à l'emploi. La personnalisation professionnelle est décrite dans les offres Entreprise.
       </p>
-      <Link href="/evenements/nouveau" className="inline-flex min-h-11 items-center rounded-full bg-pine px-5 font-semibold text-white">Préparer un événement</Link>
+      <ButtonLink href="/evenements/nouveau">Préparer un événement</ButtonLink>
       {companySize === "quote" ? (
         <form className="max-w-xl space-y-3 rounded-3xl border border-line bg-card p-5" onSubmit={async (event) => {
           event.preventDefault();
@@ -279,7 +279,7 @@ function Return({ paymentId }: { paymentId: string }) {
         </Button>
       ) : null}
       {note ? <p className="text-sm text-pine">{note}</p> : null}
-      {eventId ? <Link className="font-semibold text-pine" href={`/evenements/${eventId}`}>Revenir à l'événement</Link> : null}
+      {eventId ? <ButtonLink variant="secondary" href={`/evenements/${eventId}`}>Revenir à l'événement</ButtonLink> : null}
     </article>
   );
 }
@@ -327,7 +327,7 @@ export function CoOrganizers({ eventId }: { eventId: string }) {
         {rows.map((row) => (
           <li key={row.id} className="flex items-center justify-between gap-3">
             <span>{row.email}</span>
-            <button type="button" className="text-burgundy" onClick={() => void call("removeCoOrganizer", { eventId, uid: row.id })}>Retirer</button>
+            <Button type="button" variant="danger" onClick={() => void call("removeCoOrganizer", { eventId, uid: row.id })}>Retirer</Button>
           </li>
         ))}
       </ul>
@@ -367,7 +367,7 @@ function TestNotice({ paymentId }: { paymentId: string }) {
       </div>
       {message ? <p className="text-sm text-pine">{message}</p> : null}
       {error ? <p className="text-sm text-burgundy">{error}</p> : null}
-      <Link className="text-sm font-semibold text-pine" href={`/paiement/retour?payment=${paymentId}`}>Voir la page de retour, qui ne valide rien</Link>
+      <ButtonLink variant="secondary" href={`/paiement/retour?payment=${paymentId}`}>Voir la page de retour, qui ne valide rien</ButtonLink>
     </article>
   );
 }

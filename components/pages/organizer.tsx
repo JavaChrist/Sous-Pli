@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { RequireAuth } from "@/components/require-auth";
 import { useAuth, useConfirm, useSensitive, useToast } from "@/components/providers";
-import { Button } from "@/components/ui/button";
+import { Button, ButtonLink, buttonClass } from "@/components/ui/button";
 import { Field, SelectInput, TextArea, TextInput } from "@/components/ui/field";
 import { Modal } from "@/components/ui/modal";
 import { EmptyState, ErrorState, LoadingState } from "@/components/ui/states";
@@ -60,7 +60,7 @@ function EventsList() {
     <div className="space-y-4">
       <div className="flex items-center justify-between gap-3">
         <h1 className="font-serif text-4xl text-pine-deep">Mes événements</h1>
-        <Link href="/evenements/nouveau" className="rounded-full bg-pine px-4 py-2 text-sm font-semibold text-white">Créer</Link>
+        <ButtonLink href="/evenements/nouveau">Créer</ButtonLink>
       </div>
       {error ? <ErrorState>{error}</ErrorState> : null}
       {rows === null && !error ? <LoadingState /> : null}
@@ -263,7 +263,7 @@ function MemberEditor({
         {members.map((member, index) => (
           <li key={`${member.displayName}-${index}`} className="flex items-center justify-between rounded-2xl bg-cream px-3 py-2">
             <span>{member.displayName}{member.email ? ` · ${member.email}` : ""}</span>
-            <button type="button" className="text-burgundy" onClick={() => onChange(members.filter((_, item) => item !== index))}>Retirer</button>
+            <Button type="button" variant="danger" onClick={() => onChange(members.filter((_, item) => item !== index))}>Retirer</Button>
           </li>
         ))}
       </ul>
@@ -427,10 +427,10 @@ function ReuseRosterDialog({
             key={event.id}
             type="button"
             disabled={Boolean(busyId)}
-            className="flex w-full items-center justify-between gap-3 rounded-2xl border border-line bg-cream px-4 py-3 text-left text-sm disabled:opacity-60"
+            className={buttonClass("secondary", "w-full justify-between text-left disabled:opacity-60")}
             onClick={() => void reuse(event.id)}
           >
-            <span className="font-semibold">{event.name}</span>
+            <span>{event.name}</span>
             <span className="text-muted">{busyId === event.id ? "Patientez..." : event.status}</span>
           </button>
         ))}
@@ -495,13 +495,13 @@ function Dashboard({ eventId }: { eventId: string }) {
         <span className="rounded-full bg-card px-3 py-1 text-xs">{PRIVACY_LABELS[event.privacyMode as keyof typeof PRIVACY_LABELS]}</span>
       </div>
       <div className="grid gap-3 sm:grid-cols-3">
-        <Link className="rounded-3xl border border-line bg-card p-4" href={`/evenements/${eventId}/participants`}>Participants</Link>
-        <Link className="rounded-3xl border border-line bg-card p-4" href={`/evenements/${eventId}/exclusions`}>Règles et exclusions</Link>
-        <Link className="rounded-3xl border border-line bg-card p-4" href={`/evenements/${eventId}/invitations`}>Invitations</Link>
-        <Link className="rounded-3xl border border-line bg-card p-4" href={`/evenements/${eventId}/courriels`}>E-mails</Link>
-        <Link className="rounded-3xl border border-line bg-card p-4" href={`/evenements/${eventId}/reglement`}>Offre et paiement</Link>
-        <Link className="rounded-3xl border border-line bg-card p-4" href={`/participations/${eventId}`}>Mon espace</Link>
-        <Link className="rounded-3xl border border-line bg-card p-4" href={`/participations/${eventId}/jour-j`}>Jour J</Link>
+        <ButtonLink variant="secondary" className="w-full justify-start" href={`/evenements/${eventId}/participants`}>Participants</ButtonLink>
+        <ButtonLink variant="secondary" className="w-full justify-start" href={`/evenements/${eventId}/exclusions`}>Règles et exclusions</ButtonLink>
+        <ButtonLink variant="secondary" className="w-full justify-start" href={`/evenements/${eventId}/invitations`}>Invitations</ButtonLink>
+        <ButtonLink variant="secondary" className="w-full justify-start" href={`/evenements/${eventId}/courriels`}>E-mails</ButtonLink>
+        <ButtonLink variant="secondary" className="w-full justify-start" href={`/evenements/${eventId}/reglement`}>Offre et paiement</ButtonLink>
+        <ButtonLink variant="secondary" className="w-full justify-start" href={`/participations/${eventId}`}>Mon espace</ButtonLink>
+        <ButtonLink variant="secondary" className="w-full justify-start" href={`/participations/${eventId}/jour-j`}>Jour J</ButtonLink>
       </div>
       <p className="text-sm text-muted">{CATALOG[commercial.offerId].title} · {commercial.status === "paid" ? "payée" : commercial.status === "included" ? "incluse" : commercial.status === "pending" ? "confirmation du paiement en cours" : "paiement non confirmé"}</p>
       {commercial.offerId === "business_plus" && commercial.status === "paid" ? <TeamProgress eventId={eventId} /> : null}
@@ -741,7 +741,7 @@ function Exclusions({ eventId }: { eventId: string }) {
         {constraints.map((constraint, index) => (
           <li key={index} className="flex justify-between gap-3 rounded-2xl bg-card px-3 py-2">
             <span>{labelOf(constraint)}</span>
-            <button type="button" onClick={() => setConstraints(constraints.filter((_, item) => item !== index))}>Retirer</button>
+            <Button type="button" variant="danger" onClick={() => setConstraints(constraints.filter((_, item) => item !== index))}>Retirer</Button>
           </li>
         ))}
       </ul>
@@ -791,7 +791,7 @@ function Invitations({ eventId }: { eventId: string }) {
         {links.map((link) => (
           <li key={link.memberId} className="break-all rounded-2xl bg-card p-3 text-sm">
             {link.url}
-            <button type="button" className="mt-2 block font-semibold text-pine" onClick={() => void navigator.clipboard.writeText(link.url)}>Copier</button>
+            <Button type="button" variant="secondary" className="mt-2" onClick={() => void navigator.clipboard.writeText(link.url)}>Copier</Button>
           </li>
         ))}
       </ul>
@@ -910,7 +910,7 @@ function MailTheme({ eventId }: { eventId: string }) {
               toast("Logo prêt à être enregistré");
             } catch (caught) { setError(errorText(caught)); }
           }} />
-          {logoUrl ? <button type="button" className="text-sm font-semibold text-pine" onClick={() => setLogoUrl("")}>Retirer le logo</button> : null}
+          {logoUrl ? <Button type="button" variant="danger" onClick={() => setLogoUrl("")}>Retirer le logo</Button> : null}
         </Field>
       ) : <p className="text-sm text-muted">Le logo dans les e-mails est inclus dans les offres Association, Entreprise et Entreprise Plus une fois payées.</p>}
       {error ? <p className="text-sm text-burgundy">{error}</p> : null}

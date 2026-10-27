@@ -6,6 +6,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import type { ReactNode } from "react";
 import { cn } from "@/lib/cn";
+import { buttonClass } from "@/components/ui/button";
 import { signOutClear, useAuth } from "./providers";
 import { InstallPrompt, UpdateManager } from "./pwa";
 
@@ -24,7 +25,7 @@ export function Shell({ children, deploymentVersion }: { children: ReactNode; de
 
   return (
     <div className="min-h-screen">
-      <a href="#contenu" className="sr-only focus:not-sr-only focus:absolute focus:left-4 focus:top-4 focus:z-[80] focus:rounded-full focus:bg-white focus:px-4 focus:py-2">
+      <a href="#contenu" className="sr-only focus:not-sr-only focus:absolute focus:left-4 focus:top-4 focus:z-[80] focus:rounded-2xl focus:bg-white focus:px-3 focus:py-2">
         Aller au contenu
       </a>
       <header className="safe-top sticky top-0 z-40 border-b border-line/80 bg-cream/90 backdrop-blur">
@@ -35,13 +36,13 @@ export function Shell({ children, deploymentVersion }: { children: ReactNode; de
           </Link>
           <nav className="hidden items-center gap-1 md:flex" aria-label="Navigation principale">
             {(logged ? items : [{ href: "/", label: "Accueil", icon: House }, { href: "/aide", label: "Aide", icon: House }, { href: "/tarifs", label: "Tarifs", icon: House }]).map((item) => (
-              <Link key={item.href} href={item.href} className={cn("rounded-full px-3 py-2 text-sm", pathname === item.href ? "bg-pine text-white" : "text-ink hover:bg-white")}>
+              <Link key={item.href} href={item.href} className={buttonClass(pathname === item.href ? "primary" : "secondary")}>
                 {item.label}
               </Link>
             ))}
             </nav>
           {!logged ? (
-            <Link href="/connexion" className="rounded-full bg-pine px-4 py-2 text-sm font-semibold text-white">
+            <Link href="/connexion" className={buttonClass("primary")}>
               Connexion
             </Link>
           ) : null}
@@ -55,7 +56,7 @@ export function Shell({ children, deploymentVersion }: { children: ReactNode; de
                 const Icon = item.icon;
                 const active = pathname === item.href || (item.href !== "/" && pathname.startsWith(item.href));
                 return (
-                  <Link key={item.href} href={item.href} className={cn("flex items-center gap-3 rounded-2xl px-3 py-2 text-sm", active ? "bg-pine text-white" : "hover:bg-white")}>
+                  <Link key={item.href} href={item.href} className={buttonClass(active ? "primary" : "secondary", "w-full justify-start gap-3")}>
                     <Icon className="h-4 w-4" />
                     {item.label}
                   </Link>
@@ -69,11 +70,11 @@ export function Shell({ children, deploymentVersion }: { children: ReactNode; de
             <p className="mb-6 rounded-2xl border border-line bg-card p-4 text-sm">
               Adresse non vérifiée. Tu peux consulter l'aide, renvoyer le message depuis le profil et te déconnecter. Les actions d'organisateur qui exigent une adresse vérifiée restent en attente.
               {" "}
-              <Link className="font-semibold text-pine" href="/profil">Profil</Link>
-              {" · "}
-              <Link className="font-semibold text-pine" href="/aide">Aide</Link>
-              {" · "}
-              <button type="button" className="font-semibold text-pine" onClick={() => void signOutClear()}>Se déconnecter</button>
+              <span className="mt-3 flex flex-wrap gap-2">
+                <Link href="/profil" className={buttonClass("secondary")}>Profil</Link>
+                <Link href="/aide" className={buttonClass("secondary")}>Aide</Link>
+                <button type="button" className={buttonClass("secondary")} onClick={() => void signOutClear()}>Se déconnecter</button>
+              </span>
             </p>
           ) : null}
           {children}
@@ -96,7 +97,7 @@ export function Shell({ children, deploymentVersion }: { children: ReactNode; de
               const active = pathname === item.href || (item.href !== "/" && pathname.startsWith(item.href));
               return (
                 <li key={item.href}>
-                  <Link href={item.href} className={cn("flex min-h-14 flex-col items-center justify-center gap-1 text-[11px]", active ? "text-pine" : "text-muted")}>
+                  <Link href={item.href} className={buttonClass(active ? "primary" : "secondary", "min-h-14 w-full flex-col gap-1 px-1 text-[11px]")}>
                     <Icon className="h-5 w-5" />
                     {item.label}
                   </Link>

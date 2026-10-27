@@ -29,7 +29,7 @@ export function PasswordInput(props: InputHTMLAttributes<HTMLInputElement>) {
       <input {...rest} type={visible ? "text" : "password"} className={cn(control, "pr-12", className)} />
       <button
         type="button"
-        className="absolute inset-y-0 right-1 flex w-11 items-center justify-center text-muted"
+        className="absolute inset-y-0 right-1 flex w-11 items-center justify-center rounded-2xl text-ink hover:bg-white"
         aria-label={visible ? "Masquer le mot de passe" : "Afficher le mot de passe"}
         aria-pressed={visible}
         onMouseDown={(event) => event.preventDefault()}

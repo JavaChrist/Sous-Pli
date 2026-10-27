@@ -1,4 +1,5 @@
 import { AlertTriangle, Inbox, LoaderCircle, WifiOff } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import type { ReactNode } from "react";
 
 export function LoadingState({ label = "Chargement" }: { label?: string }) {
@@ -29,9 +30,9 @@ export function ErrorState({ children, onRetry }: { children: ReactNode; onRetry
         <div className="text-sm">
           <p className="font-semibold">{children}</p>
           {onRetry ? (
-            <button className="mt-3 font-semibold text-pine" onClick={onRetry} type="button">
+            <Button className="mt-3" onClick={onRetry} type="button" variant="secondary">
               Réessayer
-            </button>
+            </Button>
           ) : null}
         </div>
       </div>

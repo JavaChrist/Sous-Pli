@@ -2,9 +2,8 @@
 
 import { appConfig } from "@shared/config";
 import { Gift, Mail, ShieldCheck, Users } from "lucide-react";
-import Link from "next/link";
 import { useState } from "react";
-import { Button } from "@/components/ui/button";
+import { Button, ButtonLink } from "@/components/ui/button";
 import { Field, TextArea, TextInput } from "@/components/ui/field";
 import { call, errorText } from "@/lib/firebase/api";
 
@@ -17,12 +16,8 @@ export function HomePage() {
           <h1 className="mt-3 font-serif text-5xl leading-tight text-pine-deep md:text-6xl">{appConfig.name}</h1>
           <p className="mt-4 max-w-xl text-lg text-muted">{appConfig.description}</p>
           <div className="mt-6 flex flex-wrap gap-3">
-            <Link href="/evenements/nouveau" className="inline-flex min-h-11 items-center rounded-full bg-pine px-5 font-semibold text-white">
-              Préparer un échange
-            </Link>
-            <Link href="/aide" className="inline-flex min-h-11 items-center rounded-full border border-line bg-card px-5 font-semibold">
-              Comment ça marche
-            </Link>
+            <ButtonLink href="/evenements/nouveau">Préparer un échange</ButtonLink>
+            <ButtonLink variant="secondary" href="/aide">Comment ça marche</ButtonLink>
           </div>
         </div>
         <img src="/logo512.png" alt="Enveloppe cachetée, cadeau bordeaux et ruban doré, Sous pli" className="mx-auto w-full max-w-md rounded-[2rem]" />
@@ -135,7 +130,7 @@ export function DeniedPage() {
     <article className="mx-auto max-w-xl rounded-3xl border border-line bg-card p-6">
       <h1 className="font-serif text-4xl text-pine-deep">Accès refusé</h1>
       <p className="mt-3 text-sm text-muted">Cette page ne fait pas partie de vos échanges, ou votre session n'a pas le droit de la lire.</p>
-      <Link href="/evenements" className="mt-4 inline-flex font-semibold text-pine">Retour aux événements</Link>
+      <ButtonLink variant="secondary" className="mt-4" href="/evenements">Retour aux événements</ButtonLink>
     </article>
   );
 }

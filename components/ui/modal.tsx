@@ -58,7 +58,7 @@ export function Modal({
                 {description ?? "Fenêtre de dialogue"}
               </Dialog.Description>
             </div>
-            <Dialog.Close className="rounded-full p-2 text-muted hover:bg-cream" aria-label="Fermer" disabled={busy}>
+            <Dialog.Close className="rounded-2xl p-2 text-ink hover:bg-white" aria-label="Fermer" disabled={busy}>
               <X className="h-4 w-4" />
             </Dialog.Close>
           </div>
