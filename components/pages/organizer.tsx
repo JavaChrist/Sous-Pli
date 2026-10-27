@@ -1,6 +1,6 @@
 "use client";
 
-import { collection, doc, onSnapshot, orderBy, query, where } from "firebase/firestore";
+import { collection, doc, getDocs, onSnapshot, orderBy, query, where } from "firebase/firestore";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { RequireAuth } from "@/components/require-auth";
@@ -18,6 +18,7 @@ import { CATALOG, defaultOffer, emailOfferRights, priceLabel, readCommercial } f
 import { CoOrganizers, TeamProgress } from "@/components/pages/billing";
 import { CONTEXT_LABELS, JOIN_LABELS, OCCASION_LABELS, PRIVACY_LABELS } from "@shared/domain";
 import { mapTabular } from "@shared/import-table";
+import { mergeParticipants, type RosterPerson } from "@shared/roster";
 import { EVENT_TEMPLATE_IDS, defaultTheme, templateCopy, type PaletteId, type TemplateId } from "@shared/email/templates";
 import { PREVIEW_VARS, renderEmail } from "@shared/email/render";
 import { getDownloadURL, ref as storageObject, uploadBytes } from "firebase/storage";
@@ -229,10 +230,24 @@ function Wizard() {
   );
 }
 
-function MemberEditor({ members, onChange }: { members: EventDraft["members"]; onChange: (members: EventDraft["members"]) => void }) {
+function MemberEditor({
+  members,
+  onChange,
+  excludeEventId,
+  organizerMemberId,
+  onReused,
+}: {
+  members: EventDraft["members"];
+  onChange: (members: EventDraft["members"]) => void;
+  excludeEventId?: string;
+  organizerMemberId?: string | null;
+  onReused?: (members: EventDraft["members"]) => Promise<void>;
+}) {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [importOpen, setImportOpen] = useState(false);
+  const [reuseOpen, setReuseOpen] = useState(false);
+  const toast = useToast();
   return (
     <div className="space-y-3 rounded-3xl border border-line bg-card p-5">
       <div className="grid gap-3 sm:grid-cols-[1fr_1fr_auto]">
@@ -240,7 +255,10 @@ function MemberEditor({ members, onChange }: { members: EventDraft["members"]; o
         <TextInput placeholder="E-mail facultatif" value={email} onChange={(event) => setEmail(event.target.value)} />
         <Button type="button" onClick={() => { if (!name.trim()) return; onChange([...members, { displayName: name.trim(), email: email.trim(), groupLabel: "" }]); setName(""); setEmail(""); }}>Ajouter</Button>
       </div>
-      <Button variant="secondary" type="button" onClick={() => setImportOpen(true)}>Importer un fichier</Button>
+      <div className="flex flex-wrap gap-2">
+        <Button variant="secondary" type="button" onClick={() => setImportOpen(true)}>Importer un fichier</Button>
+        <Button variant="secondary" type="button" onClick={() => setReuseOpen(true)}>Reprendre un groupe</Button>
+      </div>
       <ul className="space-y-2 text-sm">
         {members.map((member, index) => (
           <li key={`${member.displayName}-${index}`} className="flex items-center justify-between rounded-2xl bg-cream px-3 py-2">
@@ -250,6 +268,18 @@ function MemberEditor({ members, onChange }: { members: EventDraft["members"]; o
         ))}
       </ul>
       <ImportDialog open={importOpen} onOpenChange={setImportOpen} onImported={(imported) => onChange([...members, ...imported])} />
+      <ReuseRosterDialog
+        open={reuseOpen}
+        onOpenChange={setReuseOpen}
+        excludeEventId={excludeEventId}
+        current={members}
+        organizerMemberId={organizerMemberId}
+        onImported={async (next, added) => {
+          if (onReused) await onReused(next);
+          onChange(next);
+          toast(added === 1 ? "1 personne reprise, avec son adresse." : `${added} personnes reprises, avec leurs adresses.`);
+        }}
+      />
     </div>
   );
 }
@@ -316,6 +346,99 @@ function ImportDialog({ open, onOpenChange, onImported }: { open: boolean; onOpe
   );
 }
 
+function ReuseRosterDialog({
+  open,
+  onOpenChange,
+  excludeEventId,
+  current,
+  organizerMemberId,
+  onImported,
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  excludeEventId?: string;
+  current: EventDraft["members"];
+  organizerMemberId?: string | null;
+  onImported: (members: EventDraft["members"], added: number) => Promise<void> | void;
+}) {
+  const { user } = useAuth();
+  const [events, setEvents] = useState<Array<{ id: string; name: string; status: string }>>([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+  const [busyId, setBusyId] = useState("");
+
+  useEffect(() => {
+    if (!open || !user) return;
+    setError("");
+    setLoading(true);
+    getDocs(query(collection(getDb(), "events"), where("organizerUid", "==", user.uid), orderBy("updatedAt", "desc")))
+      .then((snap) => {
+        setEvents(snap.docs
+          .filter((item) => item.id !== excludeEventId)
+          .map((item) => ({
+            id: item.id,
+            name: String(item.data().name ?? "Échange"),
+            status: statusLabel(String(item.data().status ?? "")),
+          })));
+      })
+      .catch((caught) => setError(errorText(caught)))
+      .finally(() => setLoading(false));
+  }, [open, user, excludeEventId]);
+
+  async function reuse(sourceId: string) {
+    setBusyId(sourceId);
+    setError("");
+    try {
+      const [people, secrets] = await Promise.all([
+        getDocs(collection(getDb(), "events", sourceId, "members")),
+        getDocs(collection(getDb(), "events", sourceId, "memberPrivate")),
+      ]);
+      const emails = new Map(secrets.docs.map((item) => [item.id, String(item.data().email ?? "")]));
+      const incoming: RosterPerson[] = people.docs.map((item) => ({
+        memberId: item.id,
+        displayName: String(item.data().displayName ?? ""),
+        email: emails.get(item.id) ?? "",
+        groupLabel: String(item.data().groupLabel ?? ""),
+        managedByMemberId: (item.data().managedByMemberId as string | null) ?? null,
+        role: String(item.data().role ?? ""),
+      }));
+      const merged = mergeParticipants(current, incoming, organizerMemberId);
+      if (merged.added === 0) {
+        setError("Ces personnes sont déjà dans la liste.");
+        return;
+      }
+      await onImported(merged.members, merged.added);
+      onOpenChange(false);
+    } catch (caught) {
+      setError(errorText(caught));
+    } finally {
+      setBusyId("");
+    }
+  }
+
+  return (
+    <Modal open={open} onOpenChange={onOpenChange} title="Reprendre un groupe" description="Les prénoms et les adresses d'un échange déjà créé sont ajoutés. Une adresse déjà présente n'est pas recopiée. Aucune invitation n'est envoyée.">
+      {loading ? <p className="text-sm text-muted">Chargement des échanges...</p> : null}
+      {error ? <p className="text-sm text-burgundy">{error}</p> : null}
+      {!loading && events.length === 0 ? <p className="text-sm text-muted">Aucun autre échange à reprendre.</p> : null}
+      <div className="space-y-2">
+        {events.map((event) => (
+          <button
+            key={event.id}
+            type="button"
+            disabled={Boolean(busyId)}
+            className="flex w-full items-center justify-between gap-3 rounded-2xl border border-line bg-cream px-4 py-3 text-left text-sm disabled:opacity-60"
+            onClick={() => void reuse(event.id)}
+          >
+            <span className="font-semibold">{event.name}</span>
+            <span className="text-muted">{busyId === event.id ? "Patientez..." : event.status}</span>
+          </button>
+        ))}
+      </div>
+    </Modal>
+  );
+}
+
 export function EventDashboard({ eventId }: { eventId: string }) {
   return <RequireAuth><Dashboard eventId={eventId} /></RequireAuth>;
 }
@@ -329,6 +452,9 @@ function Dashboard({ eventId }: { eventId: string }) {
   const [error, setError] = useState("");
   const [info, setInfo] = useState("");
   const [busy, setBusy] = useState(false);
+  const [twinOpen, setTwinOpen] = useState(false);
+  const [twinName, setTwinName] = useState("");
+  const [twinError, setTwinError] = useState("");
   useEffect(() => onSnapshot(doc(getDb(), "events", eventId), (snap) => {
     if (!snap.exists()) setError("Accès refusé ou échange introuvable.");
     else { setError(""); setEvent({ id: snap.id, ...snap.data() }); }
@@ -395,10 +521,11 @@ function Dashboard({ eventId }: { eventId: string }) {
           if (!accepted) return;
           try { await call("revealEvent", { eventId }); toast("Révélation ouverte"); } catch (caught) { setError(errorText(caught)); }
         }}>Révélation collective</Button> : null}
-        <Button variant="secondary" onClick={async () => {
-          const created = await call<{ eventId: string }>("duplicateEvent", { eventId });
-          window.location.href = `/evenements/${created.eventId}`;
-        }}>Dupliquer</Button>
+        <Button variant="secondary" onClick={() => {
+          setTwinName(`${String(event.name)} — second tirage`.slice(0, 80));
+          setTwinError("");
+          setTwinOpen(true);
+        }}>Second tirage</Button>
         <Button variant="danger" onClick={async () => {
           const accepted = await confirm({ title: "Annuler l'échange ?", description: `Saisissez ensuite le nom « ${String(event.name)} » dans la confirmation du serveur.`, confirmLabel: "Continuer", danger: true });
           if (!accepted) return;
@@ -407,6 +534,23 @@ function Dashboard({ eventId }: { eventId: string }) {
       </div>
       {status === "drawn" ? <LateRoster eventId={eventId} /> : null}
       <PracticalForm eventId={eventId} place={String(event.place ?? "")} rulesText={String(event.rulesText ?? "")} description={String(event.description ?? "")} />
+      <Modal open={twinOpen} onOpenChange={setTwinOpen} title="Second tirage" description="Les participants, leurs adresses et les exclusions sont repris dans un nouvel échange. Les invitations et le paiement ne le sont pas. Utile pour un cadeau top et un cadeau flop." busy={busy}>
+        <Field label="Nom">
+          <TextInput value={twinName} maxLength={80} onChange={(input) => setTwinName(input.target.value)} />
+        </Field>
+        {twinError ? <p className="text-sm text-burgundy">{twinError}</p> : null}
+        <Button busy={busy} onClick={async () => {
+          setBusy(true);
+          setTwinError("");
+          try {
+            const created = await call<{ eventId: string }>("duplicateEvent", { eventId, name: twinName.trim() });
+            window.location.href = `/evenements/${created.eventId}`;
+          } catch (caught) {
+            setTwinError(errorText(caught));
+            setBusy(false);
+          }
+        }}>Créer le second tirage</Button>
+      </Modal>
     </div>
   );
 }
@@ -477,6 +621,7 @@ export function ParticipantsPage({ eventId }: { eventId: string }) {
 
 function Participants({ eventId }: { eventId: string }) {
   const [members, setMembers] = useState<EventDraft["members"]>([]);
+  const [organizerMemberId, setOrganizerMemberId] = useState<string | null>(null);
   const [emails, setEmails] = useState<Record<string, string>>({});
   const [error, setError] = useState("");
   const [ready, setReady] = useState(false);
@@ -487,6 +632,8 @@ function Participants({ eventId }: { eventId: string }) {
     setEmails(next);
   }), [eventId]);
   useEffect(() => onSnapshot(collection(getDb(), "events", eventId, "members"), (snap) => {
+    const organizer = snap.docs.find((item) => item.data().role === "organizer");
+    setOrganizerMemberId(organizer?.id ?? null);
     setMembers(snap.docs.filter((item) => item.data().role !== "organizer").map((item) => ({
       memberId: item.id,
       displayName: String(item.data().displayName ?? ""),
@@ -500,9 +647,17 @@ function Participants({ eventId }: { eventId: string }) {
   return (
     <div className="space-y-4">
       <h1 className="font-serif text-4xl">Participants</h1>
-      <p className="text-sm text-muted">Les adresses restent dans l'espace organisateur. Deux prénoms identiques ne sont pas fusionnés.</p>
+      <p className="text-sm text-muted">Les adresses restent dans l'espace organisateur. Deux prénoms identiques ne sont pas fusionnés. Pour un cadeau top et un cadeau flop, reprenez le groupe d'un échange déjà créé.</p>
       {error ? <ErrorState>{error}</ErrorState> : null}
-      <MemberEditor members={members} onChange={setMembers} />
+      <MemberEditor
+        members={members}
+        excludeEventId={eventId}
+        organizerMemberId={organizerMemberId}
+        onChange={setMembers}
+        onReused={async (next) => {
+          await call("setMembers", { eventId, members: next.map((member) => ({ ...member, email: member.email || emails[member.memberId ?? ""] || "" })) });
+        }}
+      />
       <Button onClick={async () => {
         try {
           await call("setMembers", { eventId, members: members.map((member) => ({ ...member, email: member.email || emails[member.memberId ?? ""] || "" })) });

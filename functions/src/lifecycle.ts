@@ -43,9 +43,19 @@ export const updatePracticalInfo = callable(async (request, uid) => {
   return { ok: true };
 });
 
+function duplicateName(current: string, requested: unknown): string {
+  const name = String(requested ?? "").trim();
+  if (!name) return `${current} (reprise)`;
+  if (name.length < 2 || name.length > 80) {
+    throw new HttpsError("invalid-argument", "Le nom doit contenir entre 2 et 80 caractères.");
+  }
+  return name;
+}
+
 export const duplicateEvent = callable(async (request, uid) => {
   const eventId = String((request.data as { eventId?: string })?.eventId ?? "");
   const { data } = await requireOrganizer(eventId, uid);
+  const name = duplicateName(String(data.name ?? "Échange"), (request.data as { name?: string })?.name);
   const members = await readMembers(eventId);
   const secrets = await readPrivate(eventId);
   const draw = await db.collection("events").doc(eventId).collection("serverData").doc("draw").get();
@@ -58,7 +68,7 @@ export const duplicateEvent = callable(async (request, uid) => {
   const included = CATALOG[commercial.offerId].priceCents === 0;
   await ref.set({
     ...data,
-    name: `${data.name} (reprise)`,
+    name,
     status: "draft",
     offerId: commercial.offerId,
     commercialStatus: included ? "included" : "unpaid",
@@ -98,7 +108,7 @@ export const duplicateEvent = callable(async (request, uid) => {
         uid,
         memberId: organizer.id,
         eventId: nextId,
-        eventName: `${data.name} (reprise)`,
+        eventName: name,
         role: "organizer",
         status: "joined",
         managedMemberIds: members.filter((member) => member.managedByMemberId === organizer.id).map((member) => member.id),
