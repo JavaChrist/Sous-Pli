@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { decideLaunch } from "@shared/domain";
 import { explainDrawFailure, pairsOf, solveDraw, validateSolution } from "@shared/draw/engine";
+import { historyFromPast, personToken } from "@shared/draw/prior";
 
 const couple = (a: string, b: string) => ({ kind: "reciprocal" as const, aId: a, bId: b });
 
@@ -144,6 +145,30 @@ describe("tirage", () => {
       { giverId: "c", recipientId: "a", slot: 1 },
     ];
     expect(validateSolution(ids, 1, allowed, assignments, true)).toBeNull();
+  });
+});
+
+describe("tirages précédents", () => {
+  it("retrouve une paire par e-mail et ignore un homonyme sans adresse", () => {
+    const current = [
+      { memberId: "a", email: "a@exemple.fr", name: "Awa" },
+      { memberId: "b", email: "b@exemple.fr", name: "Bo" },
+      { memberId: "c", email: "", name: "Cam" },
+      { memberId: "d", email: "", name: "Cam" },
+    ];
+    const past = historyFromPast(current, [
+      { fromToken: personToken("a@exemple.fr", "Awa"), toToken: personToken("b@exemple.fr", "Bo") },
+      { fromToken: personToken("", "Cam"), toToken: personToken("a@exemple.fr", "Awa") },
+    ]);
+    expect(past).toEqual([{ kind: "history", fromId: "a", toId: "b" }]);
+    const solved = solveDraw({
+      memberIds: ["a", "b", "c", "d"],
+      giftsPerPerson: 1,
+      avoidReciprocal: false,
+      exclusions: past,
+    });
+    expect(solved.ok).toBe(true);
+    if (solved.ok) expect(pairsOf(solved.assignments).has("a->b")).toBe(false);
   });
 });
 

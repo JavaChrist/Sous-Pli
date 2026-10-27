@@ -370,7 +370,7 @@ function Dashboard({ eventId }: { eventId: string }) {
       </div>
       <div className="grid gap-3 sm:grid-cols-3">
         <Link className="rounded-3xl border border-line bg-card p-4" href={`/evenements/${eventId}/participants`}>Participants</Link>
-        <Link className="rounded-3xl border border-line bg-card p-4" href={`/evenements/${eventId}/exclusions`}>Exclusions</Link>
+        <Link className="rounded-3xl border border-line bg-card p-4" href={`/evenements/${eventId}/exclusions`}>Règles et exclusions</Link>
         <Link className="rounded-3xl border border-line bg-card p-4" href={`/evenements/${eventId}/invitations`}>Invitations</Link>
         <Link className="rounded-3xl border border-line bg-card p-4" href={`/evenements/${eventId}/courriels`}>E-mails</Link>
         <Link className="rounded-3xl border border-line bg-card p-4" href={`/evenements/${eventId}/reglement`}>Offre et paiement</Link>
@@ -523,6 +523,7 @@ function Exclusions({ eventId }: { eventId: string }) {
   const [toId, setToId] = useState("");
   const [groupIds, setGroupIds] = useState<string[]>([]);
   const [constraints, setConstraints] = useState<Array<Record<string, unknown>>>([]);
+  const [avoidPriorPairs, setAvoidPriorPairs] = useState(true);
   const [error, setError] = useState("");
   const toast = useToast();
   useEffect(() => {
@@ -532,7 +533,10 @@ function Exclusions({ eventId }: { eventId: string }) {
     const unsubConstraints = onSnapshot(collection(getDb(), "events", eventId, "constraints"), (snap) => {
       setConstraints(snap.docs.map((item) => item.data()));
     });
-    return () => { unsubMembers(); unsubConstraints(); };
+    const unsubEvent = onSnapshot(doc(getDb(), "events", eventId), (snap) => {
+      setAvoidPriorPairs(snap.data()?.avoidPriorPairs !== false);
+    });
+    return () => { unsubMembers(); unsubConstraints(); unsubEvent(); };
   }, [eventId]);
   const nameOf = (id: unknown) => members.find((member) => member.id === id)?.displayName ?? "Personne";
   const labelOf = (constraint: Record<string, unknown>) => {
@@ -544,8 +548,12 @@ function Exclusions({ eventId }: { eventId: string }) {
   };
   return (
     <div className="space-y-4">
-      <h1 className="font-serif text-4xl">Exclusions</h1>
-      <p className="text-sm text-muted">Personne ne peut se tirer soi-même. Une exclusion stricte n'est jamais ignorée en silence. Éviter les cadeaux réciproques reste une préférence, réglée sur l'événement.</p>
+      <h1 className="font-serif text-4xl">Règles et exclusions</h1>
+      <p className="text-sm text-muted">Interdisez à une personne d'offrir à une autre, dans un seul sens ou dans les deux. Un groupe fermé ne se tire pas entre ses membres. Personne ne peut se tirer soi-même. Une exclusion enregistrée n'est jamais ignorée en silence.</p>
+      <label className="flex items-start gap-2 text-sm">
+        <input type="checkbox" className="mt-1" checked={avoidPriorPairs} onChange={(event) => setAvoidPriorPairs(event.target.checked)} />
+        <span>Ne pas remettre les mêmes destinataires que lors des tirages précédents. La reconnaissance se fait par l'adresse e-mail, ou par le nom s'il est unique et sans adresse.</span>
+      </label>
       <div className="grid gap-3 sm:grid-cols-2">
         <SelectInput value={fromId} onChange={(event) => setFromId(event.target.value)}>
           <option value="">De</option>
@@ -584,7 +592,7 @@ function Exclusions({ eventId }: { eventId: string }) {
       </ul>
       {error ? <p className="text-sm text-burgundy">{error}</p> : null}
       <Button onClick={async () => {
-        try { await call("setConstraints", { eventId, constraints }); toast("Exclusions enregistrées"); }
+        try { await call("setConstraints", { eventId, constraints, avoidPriorPairs }); toast("Règles enregistrées"); }
         catch (caught) { setError(errorText(caught)); }
       }}>Enregistrer</Button>
     </div>

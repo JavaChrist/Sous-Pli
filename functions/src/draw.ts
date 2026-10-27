@@ -3,12 +3,14 @@ import { HttpsError } from "firebase-functions/v2/https";
 import { launchBlock, participantCount, readCommercial, rosterDecision } from "../../shared/billing";
 import { decideLaunch, type EventStatus, type Exclusion } from "../../shared/domain";
 import { explainDrawFailure, pairsOf, solveDraw } from "../../shared/draw/engine";
+import { mergeExclusions } from "../../shared/draw/prior";
 import { canRevealNow } from "../../shared/time";
 import { appOrigin, assertVerifiedIfEmail, callable, db, newId, stamp, userName } from "./admin";
 import { audit } from "./audit";
 import { readConstraints, readMembers, readPrivate, refreshTeamProgress, requireOrganizer } from "./events";
 import { issuePersonalToken } from "./invites";
 import { queueEmail } from "./mail";
+import { priorDrawExclusions } from "./prior-pairs";
 import { loadTheme, templateVars } from "./theme";
 import {
   asDate,
@@ -25,26 +27,46 @@ function fingerprint(memberIds: string[], constraints: Exclusion[], gifts: numbe
   return JSON.stringify({ memberIds: [...memberIds].sort(), normalized, gifts, privacy });
 }
 
+async function exclusionsForDraw(
+  eventId: string,
+  data: DocumentData,
+  members: Awaited<ReturnType<typeof readMembers>>,
+  stored: Exclusion[],
+): Promise<Exclusion[]> {
+  if (data.avoidPriorPairs === false) return stored;
+  const secrets = await readPrivate(eventId);
+  const prior = await priorDrawExclusions(String(data.organizerUid ?? ""), eventId, members, secrets);
+  return mergeExclusions(stored, prior);
+}
+
 export const checkFeasibility = callable(async (request, uid) => {
   const eventId = String((request.data as { eventId?: string })?.eventId ?? "");
   const { data } = await requireOrganizer(eventId, uid);
   const members = await readMembers(eventId);
-  const constraints = await readConstraints(eventId);
+  const stored = await readConstraints(eventId);
+  const constraints = await exclusionsForDraw(eventId, data, members, stored);
   const solved = solveDraw({
     memberIds: members.map((member) => member.id),
     giftsPerPerson: Number(data.giftsPerPerson ?? 1),
     exclusions: constraints,
     avoidReciprocal: Boolean(data.avoidReciprocal),
   });
+  const priorCount = constraints.filter((item) => item.kind === "history").length;
+  const priorNote = priorCount
+    ? [`${priorCount} paire${priorCount > 1 ? "s" : ""} déjà tirée${priorCount > 1 ? "s" : ""} ${priorCount > 1 ? "sont écartées" : "est écartée"}.`]
+    : [];
   if (!solved.ok) {
-    return { ok: false, messages: explainDrawFailure(solved.reasons, namesOf(members)), reciprocalPreferenceRelaxed: false };
+    return { ok: false, messages: [...priorNote, ...explainDrawFailure(solved.reasons, namesOf(members))], reciprocalPreferenceRelaxed: false };
   }
   return {
     ok: true,
     reciprocalPreferenceRelaxed: solved.reciprocalPreferenceRelaxed,
-    messages: solved.reciprocalPreferenceRelaxed
-      ? ["Un tirage est possible. L'évitement des échanges réciproques ne pourra pas être respecté."]
-      : ["Un tirage est possible."],
+    messages: [
+      ...priorNote,
+      solved.reciprocalPreferenceRelaxed
+        ? "Un tirage est possible. L'évitement des échanges réciproques ne pourra pas être respecté."
+        : "Un tirage est possible.",
+    ],
   };
 });
 
@@ -71,9 +93,10 @@ export const launchDraw = callable(async (request, uid) => {
   if (blocked) throw new HttpsError("failed-precondition", blocked);
   const fit = rosterDecision(participantCount(members), commercial.offerId);
   if (!fit.ok) throw new HttpsError("failed-precondition", fit.message);
-  const constraints = await readConstraints(eventId);
+  const stored = await readConstraints(eventId);
+  const constraints = await exclusionsForDraw(eventId, data, members, stored);
   const gifts = Number(data.giftsPerPerson ?? 1);
-  const before = fingerprint(members.map((member) => member.id), constraints, gifts, String(data.privacyMode));
+  const before = fingerprint(members.map((member) => member.id), stored, gifts, String(data.privacyMode));
   const solved = solveDraw({
     memberIds: members.map((member) => member.id),
     giftsPerPerson: gifts,
@@ -315,7 +338,8 @@ export const lateMemberChange = callable(async (request, uid) => {
   }
   const lateFit = rosterDecision(participantCount(nextMembers), readCommercial(data).offerId);
   if (!lateFit.ok) throw new HttpsError("failed-precondition", lateFit.message);
-  const constraints = await readConstraints(eventId);
+  const stored = await readConstraints(eventId);
+  const constraints = await exclusionsForDraw(eventId, data, nextMembers, stored);
   const solved = solveDraw({
     memberIds: nextMembers.map((member) => member.id),
     giftsPerPerson: Number(data.giftsPerPerson ?? 1),

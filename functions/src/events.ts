@@ -317,6 +317,9 @@ export const setConstraints = callable(async (request, uid) => {
   const batch = db.batch();
   existing.docs.forEach((doc) => batch.delete(doc.ref));
   input.constraints.forEach((constraint) => batch.set(ref.doc(newId()), constraint));
+  if (typeof input.avoidPriorPairs === "boolean") {
+    batch.update(db.collection("events").doc(input.eventId), { avoidPriorPairs: input.avoidPriorPairs, updatedAt: stamp() });
+  }
   await batch.commit();
   await audit(input.eventId, uid, "constraints.replace");
   return { count: input.constraints.length };

@@ -106,6 +106,12 @@ export const duplicateEvent = callable(async (request, uid) => {
       });
     }
   }
+  const existing = await db.collection("events").doc(eventId).collection("constraints").get();
+  for (const constraint of existing.docs) {
+    const dataConstraint = constraint.data() as Exclusion;
+    if (dataConstraint.kind === "history") continue;
+    await ref.collection("constraints").doc(newId()).set(dataConstraint);
+  }
   for (const constraint of history) {
     await ref.collection("constraints").doc(newId()).set(constraint);
   }

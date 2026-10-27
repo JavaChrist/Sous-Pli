@@ -70,6 +70,7 @@ export const constraintSchema = z.discriminatedUnion("kind", [
 export const constraintsInputSchema = z.object({
   eventId: id,
   constraints: z.array(constraintSchema).max(400),
+  avoidPriorPairs: z.boolean().optional(),
 });
 
 export const wishItemSchema = z.object({
