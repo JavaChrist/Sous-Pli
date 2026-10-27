@@ -503,6 +503,7 @@ function Dashboard({ eventId }: { eventId: string }) {
   if (!event) return <LoadingState />;
   const status = String(event.status ?? "");
   const commercial = readCommercial(event);
+  const sectionClass = "w-full justify-start border border-muted/40 bg-transparent hover:bg-white active:bg-pine active:text-white";
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -513,13 +514,13 @@ function Dashboard({ eventId }: { eventId: string }) {
         <span className="rounded-full bg-card px-3 py-1 text-xs">{PRIVACY_LABELS[event.privacyMode as keyof typeof PRIVACY_LABELS]}</span>
       </div>
       <div className="grid gap-3 sm:grid-cols-3">
-        <ButtonLink variant="secondary" className="w-full justify-start border border-line bg-card" href={`/evenements/${eventId}/participants`}>Participants</ButtonLink>
-        <ButtonLink variant="secondary" className="w-full justify-start border border-line bg-card" href={`/evenements/${eventId}/exclusions`}>Règles et exclusions</ButtonLink>
-        <ButtonLink variant="secondary" className="w-full justify-start border border-line bg-card" href={`/evenements/${eventId}/invitations`}>Invitations</ButtonLink>
-        <ButtonLink variant="secondary" className="w-full justify-start border border-line bg-card" href={`/evenements/${eventId}/courriels`}>E-mails</ButtonLink>
-        <Button type="button" variant="secondary" className="w-full justify-start border border-line bg-card" onClick={() => setPayOpen(true)}>Offre et paiement</Button>
-        <ButtonLink variant="secondary" className="w-full justify-start border border-line bg-card" href={`/participations/${eventId}`}>Mon espace</ButtonLink>
-        <ButtonLink variant="secondary" className="w-full justify-start border border-line bg-card" href={`/participations/${eventId}/jour-j`}>Jour J</ButtonLink>
+        <ButtonLink variant="secondary" className={sectionClass} href={`/evenements/${eventId}/participants`}>Participants</ButtonLink>
+        <ButtonLink variant="secondary" className={sectionClass} href={`/evenements/${eventId}/exclusions`}>Règles et exclusions</ButtonLink>
+        <ButtonLink variant="secondary" className={sectionClass} href={`/evenements/${eventId}/invitations`}>Invitations</ButtonLink>
+        <ButtonLink variant="secondary" className={sectionClass} href={`/evenements/${eventId}/courriels`}>E-mails</ButtonLink>
+        <Button type="button" variant="secondary" className={sectionClass} onClick={() => setPayOpen(true)}>Offre et paiement</Button>
+        <ButtonLink variant="secondary" className={sectionClass} href={`/participations/${eventId}`}>Mon espace</ButtonLink>
+        <ButtonLink variant="secondary" className={sectionClass} href={`/participations/${eventId}/jour-j`}>Jour J</ButtonLink>
       </div>
       <p className="text-sm text-muted">{CATALOG[commercial.offerId].title} · {commercial.status === "paid" ? "payée" : commercial.status === "included" ? "incluse" : commercial.status === "pending" ? "confirmation du paiement en cours" : "paiement non confirmé"}</p>
       {commercial.offerId === "business_plus" && commercial.status === "paid" ? <TeamProgress eventId={eventId} /> : null}
@@ -528,18 +529,18 @@ function Dashboard({ eventId }: { eventId: string }) {
       {info ? <p className="text-sm text-pine">{info}</p> : null}
       <div className="flex flex-wrap gap-2">
         {["draft", "registration_open", "ready"].includes(status) ? <Button busy={busy} onClick={() => void launch()}>Lancer le tirage</Button> : null}
-        <Button variant="secondary" className="border border-line bg-card" onClick={async () => {
+        <Button variant="secondary" onClick={async () => {
           try {
             const result = await call<{ ok: boolean; messages: string[] }>("checkFeasibility", { eventId });
             setInfo(result.messages.join(" "));
           } catch (caught) { setError(errorText(caught)); }
         }}>Vérifier la faisabilité</Button>
-        {status === "drawn" ? <Button variant="secondary" className="border border-line bg-card" onClick={async () => {
+        {status === "drawn" ? <Button variant="secondary" onClick={async () => {
           const accepted = await confirm({ title: "Révéler les résultats ?", description: "Le serveur refuse cette action avant l'heure prévue.", confirmLabel: "Révéler", danger: true });
           if (!accepted) return;
           try { await call("revealEvent", { eventId }); toast("Révélation ouverte"); } catch (caught) { setError(errorText(caught)); }
         }}>Révélation collective</Button> : null}
-        <Button variant="secondary" className="border border-line bg-card" onClick={() => {
+        <Button variant="secondary" onClick={() => {
           setTwinName(`${String(event.name)} — second tirage`.slice(0, 80));
           setTwinError("");
           setTwinOpen(true);
