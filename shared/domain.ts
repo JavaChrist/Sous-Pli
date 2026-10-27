@@ -45,6 +45,14 @@ export interface Assignment {
   slot: number;
 }
 
+export const MEMBER_STATUS_LABELS: Record<MemberStatus, string> = {
+  draft: "Pas encore confirmé",
+  invited: "Invitation envoyée",
+  pending: "En attente de validation",
+  joined: "Vous participez",
+  declined: "Participation refusée",
+};
+
 export const STATUS_LABELS: Record<EventStatus, string> = {
   draft: "Brouillon",
   registration_open: "Inscriptions ouvertes",

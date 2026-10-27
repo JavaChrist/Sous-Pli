@@ -11,7 +11,7 @@ import { Modal } from "@/components/ui/modal";
 import { EmptyState, ErrorState, LoadingState } from "@/components/ui/states";
 import { call, errorText } from "@/lib/firebase/api";
 import { getDb, getFirebaseAuth } from "@/lib/firebase/client";
-import { formatWhen, statusLabel } from "@/lib/format";
+import { formatWhen, memberStatusLabel, statusLabel } from "@/lib/format";
 import { signInAnonymously } from "firebase/auth";
 import { useRouter } from "next/navigation";
 
@@ -39,7 +39,7 @@ function List() {
       {rows?.map((row) => (
         <Link key={`${row.eventId}-${row.id}`} href={`/participations/${row.eventId}`} className="block rounded-3xl border border-line bg-card p-5">
           <h2 className="font-serif text-2xl">{row.eventName}</h2>
-          <p className="text-sm text-muted">{statusLabel(String(row.status ?? ""))}</p>
+          <p className="text-sm text-muted">{memberStatusLabel(String(row.status ?? ""))}</p>
         </Link>
       ))}
     </div>

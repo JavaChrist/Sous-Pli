@@ -1,6 +1,6 @@
 import { format } from "date-fns";
 import { fr } from "date-fns/locale";
-import { STATUS_LABELS, type EventStatus } from "@shared/domain";
+import { MEMBER_STATUS_LABELS, STATUS_LABELS, type EventStatus, type MemberStatus } from "@shared/domain";
 
 export function asDate(value: unknown): Date | null {
   if (!value) return null;
@@ -23,4 +23,8 @@ export function formatWhen(value: unknown, pattern = "EEEE d MMMM yyyy 'à' HH:m
 
 export function statusLabel(status: string): string {
   return STATUS_LABELS[status as EventStatus] ?? status;
+}
+
+export function memberStatusLabel(status: string): string {
+  return MEMBER_STATUS_LABELS[status as MemberStatus] ?? status;
 }
