@@ -1,6 +1,6 @@
 "use client";
 
-import { createUserWithEmailAndPassword, signInWithEmailAndPassword, signInWithPopup, GoogleAuthProvider, updateProfile } from "firebase/auth";
+import { createUserWithEmailAndPassword, signInWithEmailAndPassword, updateProfile } from "firebase/auth";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
@@ -12,6 +12,7 @@ import { Field, PasswordInput, TextInput } from "@/components/ui/field";
 import { useSensitive } from "@/components/providers";
 import { call, errorText } from "@/lib/firebase/api";
 import { getFirebaseAuth } from "@/lib/firebase/client";
+import { signInWithGoogle } from "@/lib/native/shell";
 import { PASSWORD_RESET_NOTICE } from "@shared/auth-action";
 
 const schema = z.object({
@@ -108,7 +109,7 @@ export function AuthScreen({ mode }: { mode: "login" | "signup" | "reset" }) {
                 setError("Cochez les conditions générales pour créer le compte.");
                 return;
               }
-              const result = await signInWithPopup(getFirebaseAuth(), new GoogleAuthProvider());
+              const result = await signInWithGoogle(getFirebaseAuth());
               if (mode === "signup") {
                 await call("ensureProfile", { acceptedTerms: true });
                 if (!result.user.emailVerified) await call("requestEmailVerification");

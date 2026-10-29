@@ -1,15 +1,19 @@
 "use client";
 
 import { collection, doc, onSnapshot, orderBy, query, updateDoc } from "firebase/firestore";
-import { EmailAuthProvider, GoogleAuthProvider, linkWithCredential, reauthenticateWithCredential, reauthenticateWithPopup } from "firebase/auth";
+import { EmailAuthProvider, linkWithCredential, reauthenticateWithCredential } from "firebase/auth";
 import { useEffect, useRef, useState } from "react";
+import Link from "next/link";
 import { RequireAuth } from "@/components/require-auth";
-import { signOutClear, useAuth, useConfirm, useSensitive, useToast } from "@/components/providers";
+import { signOutClear, useAuth, useSensitive, useToast } from "@/components/providers";
 import { Button } from "@/components/ui/button";
 import { Field, PasswordInput, TextInput } from "@/components/ui/field";
+import { Modal } from "@/components/ui/modal";
 import { EmptyState, ErrorState, LoadingState } from "@/components/ui/states";
 import { call, errorText } from "@/lib/firebase/api";
 import { getDb, getFirebaseAuth } from "@/lib/firebase/client";
+import { reauthenticateWithGoogle, saveAccountExport } from "@/lib/native/shell";
+import { publisher } from "@shared/publisher";
 
 export function NotificationsPage() {
   return <RequireAuth><Notifications /></RequireAuth>;
@@ -53,7 +57,6 @@ export function ProfilePage() {
 
 function Profile() {
   const { user } = useAuth();
-  const confirm = useConfirm();
   const toast = useToast();
   const [name, setName] = useState("");
   const editing = useRef(false);
@@ -62,6 +65,10 @@ function Profile() {
   const [password, setPassword] = useState("");
   const [nextEmail, setNextEmail] = useState("");
   const [error, setError] = useState("");
+  const [deleteOpen, setDeleteOpen] = useState(false);
+  const [deleteConfirm, setDeleteConfirm] = useState("");
+  const [deleteError, setDeleteError] = useState("");
+  const [deleteBusy, setDeleteBusy] = useState(false);
   const { setLocked } = useSensitive();
   const passwordAccount = Boolean(user?.providerData.some((item) => item.providerId === "password"));
   useEffect(() => {
@@ -100,7 +107,7 @@ function Profile() {
             if (passwordAccount) {
               await reauthenticateWithCredential(current, EmailAuthProvider.credential(current.email, password));
             } else {
-              await reauthenticateWithPopup(current, new GoogleAuthProvider());
+              await reauthenticateWithGoogle(current);
             }
             await current.getIdToken(true);
             const result = await call<{ status: string }>("requestEmailChange", { email: nextEmail });
@@ -148,24 +155,52 @@ function Profile() {
       ) : null}
       <Button variant="secondary" onClick={async () => {
         const data = await call("exportMyData");
-        const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
-        const url = URL.createObjectURL(blob);
-        const anchor = document.createElement("a");
-        anchor.href = url;
-        anchor.download = "sous-pli-export.json";
-        anchor.click();
-        URL.revokeObjectURL(url);
+        await saveAccountExport(JSON.stringify(data, null, 2));
       }}>Exporter mes données</Button>
-      <Button variant="danger" onClick={async () => {
-        const accepted = await confirm({ title: "Supprimer le compte ?", description: "Les échanges en cours doivent d'abord être annulés ou archivés.", confirmLabel: "Supprimer", danger: true });
-        if (!accepted) return;
-        try {
-          const result = await call<{ status: string }>("deleteAccount", { confirm: "SUPPRIMER" });
-          if (result.status === "deleted") toast("Suppression terminée");
-          await signOutClear();
-        }
-        catch (caught) { setError(errorText(caught)); }
-      }}>Supprimer le compte</Button>
+      <Button variant="danger" onClick={() => { setDeleteConfirm(""); setDeleteError(""); setDeleteOpen(true); }}>Supprimer le compte</Button>
+      <p className="text-sm text-muted">
+        <Link href="/suppression-compte" className="text-pine underline">Demander la suppression sans l'application</Link>
+      </p>
+      <Modal
+        open={deleteOpen}
+        onOpenChange={setDeleteOpen}
+        title="Supprimer le compte ?"
+        description="Les échanges encore ouverts doivent d'abord être annulés ou archivés. Ils ne sont pas supprimés automatiquement."
+        busy={deleteBusy}
+      >
+        <Field label="Saisissez SUPPRIMER">
+          <TextInput value={deleteConfirm} autoComplete="off" onChange={(event) => setDeleteConfirm(event.target.value)} />
+        </Field>
+        {deleteError ? <p className="mt-3 text-sm text-burgundy">{deleteError}</p> : null}
+        <p className="mt-3 text-sm text-muted">
+          <Link href="/suppression-compte" className="text-pine underline">Voir le parcours et l'assistance</Link>
+          {" · "}
+          <a className="text-pine underline" href={`mailto:${publisher.email}`}>Écrire à {publisher.email}</a>
+        </p>
+        <div className="mt-4 flex flex-wrap justify-end gap-2">
+          <Button type="button" variant="secondary" onClick={() => setDeleteOpen(false)}>Retour</Button>
+          <Button
+            type="button"
+            variant="danger"
+            busy={deleteBusy}
+            disabled={deleteConfirm !== "SUPPRIMER"}
+            onClick={async () => {
+              setDeleteBusy(true);
+              setDeleteError("");
+              try {
+                const result = await call<{ status: string }>("deleteAccount", { confirm: deleteConfirm });
+                if (result.status === "deleted") toast("Suppression terminée");
+                await signOutClear();
+              } catch (caught) {
+                setDeleteError(errorText(caught));
+                setDeleteBusy(false);
+              }
+            }}
+          >
+            Supprimer
+          </Button>
+        </div>
+      </Modal>
       <Button variant="secondary" onClick={() => void signOutClear()}>Se déconnecter</Button>
       {error ? <p className="text-sm text-burgundy">{error}</p> : null}
     </div>

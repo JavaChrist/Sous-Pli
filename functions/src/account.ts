@@ -3,6 +3,7 @@ import { HttpsError } from "firebase-functions/v2/https";
 import { onSchedule } from "firebase-functions/v2/scheduler";
 import { z } from "zod";
 import { publisher } from "../../shared/publisher";
+import { accountDeletionConfirmed } from "../../shared/retention";
 import { adminAuth, callable, consumeRate, db, stamp } from "./admin";
 import { eraseAccount } from "./erasure";
 import { queueDeletionNotice } from "./auth-mail";
@@ -107,7 +108,7 @@ export const exportMyData = callable(async (_request, uid) => {
 
 export const deleteAccount = callable(async (request, uid) => {
   const confirm = String((request.data as { confirm?: string })?.confirm ?? "");
-  if (confirm !== "SUPPRIMER") throw new HttpsError("failed-precondition", "Saisissez SUPPRIMER pour confirmer.");
+  if (!accountDeletionConfirmed(confirm)) throw new HttpsError("failed-precondition", "Saisissez SUPPRIMER pour confirmer.");
   const user = await adminAuth.getUser(uid).catch(() => null);
   const email = user?.email ?? "";
   const prenom = user?.displayName || "Bonjour";

@@ -5,6 +5,7 @@ import { createContext, useContext, useEffect, useMemo, useState, type ReactNode
 import { clearDraft } from "@/lib/draft";
 import { call } from "@/lib/firebase/api";
 import { firebaseConfigured, getFirebaseAuth } from "@/lib/firebase/client";
+import { watchAndroidChrome } from "@/lib/native/shell";
 import { Button } from "./ui/button";
 import { Modal } from "./ui/modal";
 
@@ -38,6 +39,7 @@ export function useSensitive() {
 }
 
 export function Providers({ children }: { children: ReactNode }) {
+  useEffect(() => watchAndroidChrome(), []);
   const [user, setUser] = useState<User | null>(null);
   const [ready, setReady] = useState(false);
   const configured = firebaseConfigured();

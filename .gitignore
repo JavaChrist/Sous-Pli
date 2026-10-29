@@ -21,3 +21,7 @@ firestore-debug.log
 ui-debug.log
 pubsub-debug.log
 storage-debug.log
+*.jks
+*.keystore
+android/app/google-services.json
+android/local.properties

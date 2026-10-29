@@ -11,6 +11,7 @@ import {
   rosterDecision,
   canSubmitRefund,
   centsToMollieValue,
+  hasPaidBusinessPlus,
   isMollieCheckoutUrl,
   readMolliePayment,
   settlementMatches,
@@ -25,7 +26,7 @@ import { appConfig } from "../../shared/config";
 import { Timestamp } from "firebase-admin/firestore";
 import { adminAuth, appOrigin, assertVerifiedIfEmail, callable, consumeRate, db, newId, parse, stamp, userName } from "./admin";
 import { audit } from "./audit";
-import { readMembers, requireOrganizer } from "./events";
+import { readMembers, refreshTeamProgress, requireOrganizer } from "./events";
 import { queueEmail } from "./mail";
 import { templateVars } from "./theme";
 
@@ -226,8 +227,7 @@ export const addCoOrganizer = callable(async (request, uid) => {
   const email = String((request.data as { email?: string })?.email ?? "").trim().toLowerCase();
   const { ref, data } = await requireOrganizer(eventId, uid);
   if (data.organizerUid !== uid) throw new HttpsError("permission-denied", "Seul l'organisateur principal ajoute un coorganisateur.");
-  const commercial = readCommercial(data);
-  if (commercial.paidOfferId !== "business_plus" || commercial.status !== "paid") {
+  if (!hasPaidBusinessPlus(data)) {
     throw new HttpsError("failed-precondition", "Les coorganisateurs font partie d'Entreprise Plus après confirmation du paiement.");
   }
   let account: { uid: string };
@@ -488,6 +488,7 @@ async function applyNotice(input: {
     tx.set(noticeRef, { paymentId: input.paymentId, outcome: next, at: stamp() });
     return { email: next === "failed" ? "payment_failed" as const : null, payment, eventId: String(payment.eventId) };
   });
+  if (effect.eventId) await refreshTeamProgress(effect.eventId);
   if (!effect.email || !effect.eventId) return;
   await sendReceipt(effect.eventId, effect.email, effect.payment as Record<string, unknown>, input.paymentId);
 }

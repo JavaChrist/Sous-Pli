@@ -1,5 +1,5 @@
 import { describe, expect, test } from "vitest";
-import { organizerCanCloseAccount } from "../shared/retention";
+import { accountDeletionConfirmed, organizerCanCloseAccount } from "../shared/retention";
 import {
   accessEndInstant,
   accountPhase,
@@ -62,5 +62,12 @@ describe("conservation", () => {
     expect(organizerCanCloseAccount(["archived", "cancelled"]).ok).toBe(true);
     const blocked = organizerCanCloseAccount(["drawn"]);
     expect(blocked.ok).toBe(false);
+  });
+
+  test("la suppression de compte exige la saisie exacte de SUPPRIMER", () => {
+    expect(accountDeletionConfirmed("SUPPRIMER")).toBe(true);
+    expect(accountDeletionConfirmed("supprimer")).toBe(false);
+    expect(accountDeletionConfirmed(" SUPPRIMER")).toBe(false);
+    expect(accountDeletionConfirmed("")).toBe(false);
   });
 });

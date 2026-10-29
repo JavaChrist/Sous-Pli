@@ -46,7 +46,7 @@ export const createInvitations = callable(async (request, uid) => {
   const organizer = await userName(uid);
   const links: Array<{ memberId: string; url: string; emailQueued: boolean }> = [];
   for (const member of wanted) {
-    if (member.role === "organizer") continue;
+    if (member.role === "organizer" || member.status === "joined" || member.status === "pending") continue;
     const token = await issuePersonalToken(eventId, member.id);
     const url = `${origin}/invitation/${token}`;
     const privateSnap = await db.collection("events").doc(eventId).collection("memberPrivate").doc(member.id).get();
@@ -79,23 +79,30 @@ export const resendInvitation = callable(async (request, uid) => {
   const members = await readMembers(eventId);
   const member = members.find((item) => item.id === memberId);
   if (!member) throw new HttpsError("not-found", "Ce participant est introuvable.");
-  const token = await issuePersonalToken(eventId, memberId);
-  const url = `${appOrigin()}/invitation/${token}`;
+  if (member.role === "organizer") throw new HttpsError("failed-precondition", "L'organisateur ne reçoit pas cette invitation.");
+  if (member.status === "joined") throw new HttpsError("failed-precondition", "Cette personne a déjà accepté. Aucun nouveau lien n'est envoyé.");
+  if (member.status === "pending") throw new HttpsError("failed-precondition", "Cette demande attend votre validation, pas un nouvel e-mail.");
   const privateSnap = await db.collection("events").doc(eventId).collection("memberPrivate").doc(memberId).get();
   const email = String(privateSnap.data()?.email ?? "");
-  if (email) {
-    const theme = await loadTheme(eventId, data);
-    const user = await adminAuth.getUser(uid);
-    await queueEmail({
-      idempotencyKey: `resend:${eventId}:${memberId}:${privateSnap.data()?.tokenHash}`,
-      to: email,
-      uid: null,
-      eventId,
-      templateId: "invite_resent",
-      theme,
-      vars: templateVars(data, member.displayName, await userName(uid), url),
-      replyTo: theme.replyToEnabled && user.emailVerified ? user.email ?? "" : "",
-    });
+  if (!email) throw new HttpsError("failed-precondition", "Aucune adresse n'est enregistrée pour cette personne. Ajoutez-la dans Participants.");
+  const alreadySent = member.status === "invited" || privateSnap.data()?.inviteState === "pending" || privateSnap.data()?.inviteState === "revoked";
+  const token = await issuePersonalToken(eventId, memberId);
+  const url = `${appOrigin()}/invitation/${token}`;
+  const sent = await db.collection("events").doc(eventId).collection("memberPrivate").doc(memberId).get();
+  const theme = await loadTheme(eventId, data);
+  const user = await adminAuth.getUser(uid);
+  await queueEmail({
+    idempotencyKey: `resend:${eventId}:${memberId}:${sent.data()?.tokenHash}`,
+    to: email,
+    uid: null,
+    eventId,
+    templateId: alreadySent ? "invite_resent" : "invitation",
+    theme,
+    vars: templateVars(data, member.displayName, await userName(uid), url),
+    replyTo: theme.replyToEnabled && user.emailVerified ? user.email ?? "" : "",
+  });
+  if (member.status !== "invited") {
+    await db.collection("events").doc(eventId).collection("members").doc(memberId).set({ status: "invited" }, { merge: true });
   }
   await audit(eventId, uid, "invites.resend");
   return { url, emailQueued: Boolean(email) };

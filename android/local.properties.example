@@ -1,0 +1,8 @@
+# Fichier ignoré par git. Ne pas y mettre de clé de signature.
+# sdk.dir est ajouté par Android Studio ou par la compilation locale.
+#
+# Identifiant OAuth de type client Web du même projet Firebase que le site.
+# Il sert uniquement à Credential Manager. Ne pas inventer cette valeur.
+GOOGLE_WEB_CLIENT_ID=
+# Jeton court pour ouvrir une prévisualisation protégée. Ne pas le commiter.
+# VERCEL_PROTECTION_HEADER=

@@ -1,5 +1,6 @@
 import { describe, expect, test } from "vitest";
 import {
+  CATALOG,
   UPGRADE_BUSINESS_TO_PLUS_CENTS,
   amountDue,
   asksPayment,
@@ -7,6 +8,7 @@ import {
   canSubmitRefund,
   centsToMollieValue,
   formatEuros,
+  hasPaidBusinessPlus,
   launchBlock,
   mollieValueToCents,
   offersForContext,
@@ -15,6 +17,7 @@ import {
   readMolliePayment,
   rosterDecision,
   settlementMatches,
+  teamProgressAccess,
   withdrawalOpen,
 } from "../shared/billing";
 
@@ -73,6 +76,29 @@ describe("catalogue", () => {
     if (!overflow.ok) expect(overflow.message).toMatch(/Personne n'a été retiré/);
     expect(rosterDecision(50, "family").ok).toBe(true);
     expect(rosterDecision(301, "quote").ok).toBe(false);
+  });
+
+  test("le suivi Plus exige le paiement confirmé, pas seulement l'offre choisie", () => {
+    expect(teamProgressAccess({ offerId: "business_plus", commercialStatus: "unpaid" })).toBe("clear");
+    expect(teamProgressAccess({ offerId: "business_plus", commercialStatus: "refunded", paidOfferId: null })).toBe("clear");
+    expect(teamProgressAccess({ offerId: "business_plus", commercialStatus: "paid", paidOfferId: "business" })).toBe("clear");
+    expect(hasPaidBusinessPlus({ offerId: "business_plus", commercialStatus: "paid", paidOfferId: "business_plus" })).toBe(true);
+    expect(teamProgressAccess({ offerId: "business_plus", commercialStatus: "paid", paidOfferId: "business_plus" })).toBe("publish");
+  });
+
+  test("l'import, les exclusions et les relances ne sont pas présentés comme exclusifs", () => {
+    for (const id of ["association", "business", "business_plus"] as const) {
+      const text = CATALOG[id].points.join(" ");
+      expect(text).not.toMatch(/Import de tableau|Relances groupées|Exclusions par équipe/);
+    }
+    const family = CATALOG.family.points.join(" ");
+    expect(family).toMatch(/Import/);
+    expect(family).toMatch(/Relances/);
+    expect(family).not.toMatch(/push/i);
+    expect(CATALOG.association.points.join(" ")).toMatch(/Logo/);
+    expect(CATALOG.association.points.join(" ")).toMatch(/Objets/);
+    expect(CATALOG.business.points.join(" ")).toMatch(/Logo et objets/);
+    expect(CATALOG.business_plus.points.join(" ")).toMatch(/après paiement/);
   });
 
   test("un ancien événement sans offre reste lisible", () => {

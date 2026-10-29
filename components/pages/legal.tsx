@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import Link from "next/link";
 import { CATALOG, billingPolicy, formatEuros, type OfferId } from "@shared/billing";
 import { hosting, mediator, processors, publisher } from "@shared/publisher";
 
@@ -102,6 +103,7 @@ export function PrivacyDocument() {
       <Section title="7. Suppression de compte">
         <p>La suppression retire le profil, le compte d'authentification, les index de participation, les souhaits et fichiers associés, les jetons et codes liés, les notifications, les copies de messages détenues par la personne et les envois en attente devenus inutiles. Les messages déjà reçus par un correspondant peuvent rester chez lui jusqu'à la fin de l'événement, sans lien vers le compte supprimé. Leur texte peut encore permettre une reconnaissance : le seul retrait de l'identifiant ne les anonymise pas.</p>
         <p>Un échange encore en cours dont la personne est organisatrice doit être annulé ou archivé avant la suppression. L'événement des autres participants n'est pas effacé avec le compte. Les pièces de paiement restent conservées à part.</p>
+        <p>Le parcours dans l'application et la demande par e-mail sont décrits sur la page <Link href="/suppression-compte" className="text-pine underline">Suppression de compte</Link>.</p>
       </Section>
       <Section title="8. Stockage local">
         <ul className="list-disc space-y-1 pl-5">
@@ -228,6 +230,36 @@ export function ProcessingAnnex() {
       <Section title="Fin de traitement">
         <p>À la fin d'accès de l'événement, les données de l'événement sont destinées à être supprimées, sauf enregistrements de paiement conservés à part. L'organisation peut demander l'aide de JavaChrist pour répondre aux droits des personnes, à {publisher.email}. JavaChrist n'utilise pas ces données pour son propre démarchage.</p>
       </Section>
+    </Shell>
+  );
+}
+
+export function DeletionRequestDocument() {
+  return (
+    <Shell title="Suppression de compte">
+      <Section title="Sous pli">
+        <p>Cette page explique comment demander la suppression d'un compte Sous pli, sans réinstaller l'application et sans être connecté.</p>
+        <p>Depuis une session ouverte, le parcours est : Profil, puis Supprimer le compte. Il faut saisir SUPPRIMER. L'application n'envoie pas cette confirmation à votre place.</p>
+        <p>Sans ouvrir l'application, écrivez à <a className="text-pine underline" href={`mailto:${publisher.email}`}>{publisher.email}</a> depuis l'adresse du compte, en demandant la suppression. Le support peut demander une vérification proportionnée. Cette page n'efface rien automatiquement.</p>
+      </Section>
+      <Section title="Échanges encore actifs">
+        <p>Si vous organisez encore un échange en préparation, tiré ou révélé, la suppression du compte est refusée. Il faut d'abord annuler ou archiver cet échange. Les échanges des autres participants ne sont pas supprimés avec votre compte, et ils ne sont pas annulés à votre place.</p>
+        <p>Pour ces situations, écrivez à <a className="text-pine underline" href={`mailto:${publisher.email}`}>{publisher.email}</a>. L'assistance peut vous indiquer comment clôturer l'échange. Elle ne le supprime pas depuis cette page.</p>
+      </Section>
+      <Section title="Ce qui est retiré">
+        <p>Quand la suppression aboutit, le profil, le compte d'authentification, les index de participation, les souhaits et les fichiers associés, les jetons et codes liés à la personne, les notifications, les copies de messages qu'elle détient et les e-mails encore en attente sont retirés.</p>
+      </Section>
+      <Section title="Ce qui est anonymisé ou conservé">
+        <p>Après un tirage, ou si l'échange est déjà clos, le nom du participant devient « Participant retiré » et son adresse est vidée. Les messages déjà reçus par un correspondant restent chez lui, sans lien vers le compte supprimé. Leur texte peut encore permettre de reconnaître une personne : ce n'est pas une anonymisation complète.</p>
+        <p>Les pièces de paiement restent conservées à part. Elles ne sont pas effacées avec le compte et ne constituent pas une facture. La règle prévue vise une conservation comptable de dix ans. Cette page ne promet pas qu'elles disparaissent automatiquement à cette échéance.</p>
+      </Section>
+      <p className="text-sm">
+        <Link href="/profil" className="text-pine underline">Ouvrir le profil</Link>
+        {" · "}
+        <Link href="/confidentialite" className="text-pine underline">Confidentialité</Link>
+        {" · "}
+        <Link href="/contact" className="text-pine underline">Contact</Link>
+      </p>
     </Shell>
   );
 }

@@ -21,8 +21,10 @@ import {
   readCommercial,
   type OfferId,
 } from "@shared/billing";
+import { ANDROID_PURCHASE_UNAVAILABLE, checkoutLaunch } from "@shared/native-shell";
 import { accessEndInstant } from "@shared/retention";
 import { formatInZone } from "@shared/time";
+import { useShellPlatform } from "@/lib/native/shell";
 
 export function PricingPage() {
   const [companySize, setCompanySize] = useState<"100" | "300" | "quote">("100");
@@ -44,8 +46,8 @@ export function PricingPage() {
         <PriceCard icon={Users} offerId="association" />
         <section className="flex flex-col rounded-3xl border border-line bg-card p-5">
           <Building2 className="h-6 w-6 text-pine" />
-          <h2 className="mt-3 font-serif text-2xl">Entreprise</h2>
-          <p className="mt-2 font-semibold text-pine-deep">{companySize === "100" ? "Dès 19,90 € par événement" : priceLabel(company.id)}</p>
+          <h2 className="mt-3 font-serif text-2xl">{company.title}</h2>
+          <p className="mt-2 font-semibold text-pine-deep">{priceLabel(company.id)}</p>
           <Field label="Taille du groupe">
             <SelectInput value={companySize} onChange={(event) => setCompanySize(event.target.value as typeof companySize)}>
               <option value="100">Jusqu'à 100 participants : 19,90 €</option>
@@ -61,7 +63,7 @@ export function PricingPage() {
       <p className="max-w-3xl text-sm text-muted">
         La sécurité, l'accessibilité, la suppression du compte et la protection des données ne sont pas réservées aux offres payées.
         Le contexte déclaré oriente les offres. Il n'est pas vérifié automatiquement.
-        Les thèmes gratuits sont des modèles prêts à l'emploi. La personnalisation professionnelle est décrite dans les offres Entreprise.
+        L'import, les exclusions et les relances sont disponibles pour toutes les formules. Le logo et les objets d'e-mail le sont pour Association, Entreprise et Entreprise Plus une fois le paiement confirmé.
       </p>
       <ButtonLink href="/evenements/nouveau">Préparer un événement</ButtonLink>
       {companySize === "quote" ? (
@@ -162,6 +164,7 @@ function Checkout({
   const [error, setError] = useState("");
   const [info, setInfo] = useState("");
   const [busy, setBusy] = useState(false);
+  const platform = useShellPlatform();
   function setPaying(next: boolean) {
     setBusy(next);
     onBusy?.(next);
@@ -198,8 +201,17 @@ function Checkout({
           toast("Offre enregistrée");
           return;
         }
+        const route = checkoutLaunch(platform, due.kind);
+        if (route === "android-unavailable") {
+          setInfo(ANDROID_PURCHASE_UNAVAILABLE);
+          return;
+        }
+        if (route !== "mollie") {
+          setInfo(due.kind === "settled" ? "Cette offre est déjà payée." : due.message);
+          return;
+        }
         const result = await call<{ status: string; url: string | null; mode?: string }>("createCheckout", { eventId, acceptedTerms: accepted, acceptedProcessing });
-        if (result.url) window.location.href = result.url;
+        if (result.url && platform === "web") window.location.assign(result.url);
         else setInfo(result.status === "settled" ? "Cette offre est déjà payée." : "Aucun paiement n'est dû.");
       } catch (caught) {
         setError(errorText(caught));
@@ -221,7 +233,8 @@ function Checkout({
         <p>Prix final de cette étape : {due.kind === "quote" ? "Sur devis" : formatEuros(due.cents)}</p>
         <p>{due.message}</p>
         <p className="mt-2 text-muted">Aucun frais de plateforme n'est ajouté. {billingPolicy.taxNote}</p>
-        {due.cents > 0 ? <p className="mt-2 text-muted">La suite s'ouvre chez Mollie. Aucune carte n'est enregistrée dans Sous pli. Le retour sur cette application ne débloque pas l'offre : le serveur relit l'état du paiement.</p> : null}
+        {checkoutLaunch(platform, due.kind) === "mollie" ? <p className="mt-2 text-muted">La suite s'ouvre chez Mollie. Aucune carte n'est enregistrée dans Sous pli. Le retour sur cette application ne débloque pas l'offre : le serveur relit l'état du paiement.</p> : null}
+        {checkoutLaunch(platform, due.kind) === "android-unavailable" ? <p className="mt-2 text-muted">{ANDROID_PURCHASE_UNAVAILABLE}</p> : null}
         <p className="mt-2 text-muted">{accessText(event)}</p>
         {offerId === "business_plus" ? <p className="mt-2 text-muted">Si Entreprise est déjà payée, le serveur demande 20 €, la différence annoncée, et ignore tout autre montant.</p> : null}
       </div>
@@ -241,7 +254,7 @@ function Checkout({
       {info ? <p className="text-sm text-pine">{info}</p> : null}
       <div className="flex flex-wrap justify-end gap-2">
         {onLater ? <Button type="button" variant="secondary" onClick={onLater} disabled={busy}>Plus tard</Button> : null}
-        <Button type="submit" busy={busy} disabled={due.cents > 0 && (!accepted || (context === "organization" && !acceptedProcessing))}>Continuer</Button>
+        <Button type="submit" busy={busy} disabled={checkoutLaunch(platform, due.kind) === "mollie" && (!accepted || (context === "organization" && !acceptedProcessing))}>{checkoutLaunch(platform, due.kind) === "android-unavailable" ? "Enregistrer sans achat" : "Continuer"}</Button>
       </div>
       <p className="text-sm text-muted">{billingPolicy.invoiceNote}</p>
     </form>

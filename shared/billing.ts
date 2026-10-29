@@ -33,12 +33,15 @@ export const CATALOG: Record<OfferId, OfferDefinition> = {
     points: [
       "Jusqu'à 50 participants",
       "Tirage secret classique",
-      "Exclusions individuelles et couples",
+      "Exclusions individuelles, réciproques ou par groupe",
+      "Import d'un tableau",
+      "Relances, avec plafonds",
       "Listes de souhaits et messagerie anonyme",
       "Invitations par e-mail et liens privés",
       "Suivi de l'organisateur",
       "Thèmes et e-mails prêts à l'emploi",
-      "Installation sur l'appareil et notifications dans l'application",
+      "Alertes consultables dans l'application",
+      "Installation proposée sur l'écran d'accueil",
       "Aucune publicité",
     ],
   },
@@ -52,10 +55,8 @@ export const CATALOG: Record<OfferId, OfferDefinition> = {
     points: [
       "Jusqu'à 100 participants",
       "Les fonctions de l'offre Famille & amis",
-      "Logo sur l'événement et dans les e-mails",
-      "Import de tableau",
-      "Relances groupées, avec plafonds",
-      "Thèmes adaptés aux associations",
+      "Logo sur l'événement et dans les e-mails, après paiement",
+      "Objets d'e-mail personnalisables, après paiement",
     ],
   },
   business: {
@@ -68,10 +69,7 @@ export const CATALOG: Record<OfferId, OfferDefinition> = {
     points: [
       "Jusqu'à 100 participants",
       "Les fonctions de l'offre Association",
-      "Logo et couleurs",
-      "E-mails personnalisables : introduction, signature et ton",
-      "Exclusions par équipe ou service",
-      "Aperçu et envoi d'essai à l'organisateur",
+      "Logo et objets d'e-mail, après paiement",
     ],
   },
   business_plus: {
@@ -84,8 +82,8 @@ export const CATALOG: Record<OfferId, OfferDefinition> = {
     points: [
       "Jusqu'à 300 participants",
       "Les fonctions de l'offre Entreprise",
-      "Plusieurs organisateurs autorisés",
-      "Suivi de progression par équipe",
+      "Coorganisateurs, après paiement",
+      "Suivi de progression par équipe, après paiement",
       "Les coorganisateurs ne voient pas les attributions secrètes",
     ],
   },
@@ -126,6 +124,17 @@ export function emailOfferRights(offerId: OfferId, status: CommercialStatus): { 
   const entitled = status === "paid" || status === "included";
   const custom = entitled && (offerId === "association" || offerId === "business" || offerId === "business_plus");
   return { logo: custom, subjects: custom };
+}
+
+/** Entreprise Plus n'est acquise que si le paiement confirmé porte cette offre. */
+export function hasPaidBusinessPlus(data: Parameters<typeof readCommercial>[0]): boolean {
+  const commercial = readCommercial(data);
+  return commercial.status === "paid" && commercial.paidOfferId === "business_plus";
+}
+
+/** Publier le suivi d'équipe, ou retirer un suivi qui ne correspond plus à un droit payé. */
+export function teamProgressAccess(data: Parameters<typeof readCommercial>[0]): "publish" | "clear" {
+  return hasPaidBusinessPlus(data) ? "publish" : "clear";
 }
 
 export function defaultOffer(context: ContextKind): OfferId {

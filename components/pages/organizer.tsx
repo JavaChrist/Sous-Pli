@@ -14,7 +14,7 @@ import { call, errorText } from "@/lib/firebase/api";
 import { getBucket, getDb } from "@/lib/firebase/client";
 import { formatWhen, statusLabel } from "@/lib/format";
 import { eventInputSchema } from "@shared/schemas";
-import { CATALOG, amountDue, asksPayment, defaultOffer, emailOfferRights, priceLabel, readCommercial } from "@shared/billing";
+import { CATALOG, amountDue, asksPayment, defaultOffer, emailOfferRights, hasPaidBusinessPlus, priceLabel, readCommercial } from "@shared/billing";
 import { CoOrganizers, PaymentPrompt, TeamProgress } from "@/components/pages/billing";
 import { CONTEXT_LABELS, JOIN_LABELS, OCCASION_LABELS, PRIVACY_LABELS } from "@shared/domain";
 import { mapTabular } from "@shared/import-table";
@@ -22,6 +22,7 @@ import { mergeParticipants, type RosterPerson } from "@shared/roster";
 import { EVENT_TEMPLATE_IDS, defaultTheme, templateCopy, type PaletteId, type TemplateId } from "@shared/email/templates";
 import { PREVIEW_VARS, renderEmail } from "@shared/email/render";
 import { getDownloadURL, ref as storageObject, uploadBytes } from "firebase/storage";
+import { useShellPlatform } from "@/lib/native/shell";
 import Papa from "papaparse";
 import { readSheet } from "read-excel-file/browser";
 
@@ -90,6 +91,7 @@ export function WizardPage() {
 
 function Wizard() {
   const { user } = useAuth();
+  const platform = useShellPlatform();
   const [draft, setDraft] = useState<EventDraft>(emptyDraft());
   const [step, setStep] = useState(0);
   const [error, setError] = useState("");
@@ -220,7 +222,7 @@ function Wizard() {
       {step === 1 ? (
         <div className="space-y-3 rounded-3xl border border-line bg-card p-5">
           <h2 className="font-serif text-2xl">Offre</h2>
-          <p className="text-sm text-muted">Un paiement par événement, sans abonnement. Les participants ne paient jamais. Valider une offre payante ouvre le paiement tout de suite. Les règles et les participants viennent ensuite. Le tirage attend la confirmation serveur.</p>
+          <p className="text-sm text-muted">Un paiement par événement, sans abonnement. Les participants ne paient jamais. {platform === "android" ? "Dans l’application Android, l’achat n’est pas encore disponible : une offre payante est enregistrée sans lancer de paiement." : "Valider une offre payante ouvre le paiement tout de suite."} Les règles et les participants viennent ensuite. Le tirage attend la confirmation serveur.</p>
           <Field label="Formule">
             <SelectInput value={draft.offerId} onChange={(event) => setDraft({ ...draft, offerId: event.target.value as EventDraft["offerId"] })}>
               {Object.values(CATALOG).filter((offer) => offer.contexts.includes(draft.context)).map((offer) => (
@@ -229,6 +231,9 @@ function Wizard() {
             </SelectInput>
           </Field>
           <p className="text-sm text-muted">{CATALOG[draft.offerId].summary} Capacité : {CATALOG[draft.offerId].capacity ?? "sur devis"}.</p>
+          <ul className="space-y-1 text-sm text-muted">
+            {CATALOG[draft.offerId].points.map((point) => <li key={point}>{point}</li>)}
+          </ul>
         </div>
       ) : null}
       {step === 2 ? (
@@ -599,8 +604,8 @@ function Dashboard({ eventId }: { eventId: string }) {
         <ButtonLink variant="secondary" className={sectionClass} href={`/participations/${eventId}/jour-j`}>Jour J</ButtonLink>
       </div>
       <p className="text-sm text-muted">{CATALOG[commercial.offerId].title} · {commercial.status === "paid" ? "payée" : commercial.status === "included" ? "incluse" : commercial.status === "pending" ? "confirmation du paiement en cours" : "paiement non confirmé"}</p>
-      {commercial.offerId === "business_plus" && commercial.status === "paid" ? <TeamProgress eventId={eventId} /> : null}
-      {commercial.offerId === "business_plus" && commercial.status === "paid" && event.organizerUid === user?.uid ? <CoOrganizers eventId={eventId} /> : null}
+      {hasPaidBusinessPlus(event) ? <TeamProgress eventId={eventId} /> : null}
+      {hasPaidBusinessPlus(event) && event.organizerUid === user?.uid ? <CoOrganizers eventId={eventId} /> : null}
       {error ? <p className="text-sm text-burgundy">{error}</p> : null}
       {info ? <p className="text-sm text-pine">{info}</p> : null}
       <div className="flex flex-wrap gap-2">
@@ -912,27 +917,95 @@ export function InvitationsPage({ eventId }: { eventId: string }) {
   return <RequireAuth><Invitations eventId={eventId} /></RequireAuth>;
 }
 
+function invitationStateLabel(status: string, inviteState: string): string {
+  if (status === "joined") return "Invitation acceptée";
+  if (status === "pending") return "Demande en attente de votre validation";
+  if (status === "declined") return "Participation refusée";
+  if (status === "invited" || inviteState === "pending") return "E-mail envoyé, pas encore accepté";
+  return "Pas encore invité";
+}
+
+function canResendInvitation(status: string, email: string): boolean {
+  return Boolean(email.trim()) && status !== "joined" && status !== "pending";
+}
+
 function Invitations({ eventId }: { eventId: string }) {
-  const [links, setLinks] = useState<Array<{ memberId: string; url: string }>>([]);
+  const [people, setPeople] = useState<Array<{ id: string; displayName: string; role: string; status: string }>>([]);
+  const [privates, setPrivates] = useState<Record<string, { email: string; inviteState: string }>>({});
   const [joinUrl, setJoinUrl] = useState("");
   const [error, setError] = useState("");
-  const [busy, setBusy] = useState(false);
+  const [sendingId, setSendingId] = useState("");
+  const [bulk, setBulk] = useState(false);
   const toast = useToast();
+  const confirm = useConfirm();
+  useEffect(() => {
+    const unsubMembers = onSnapshot(collection(getDb(), "events", eventId, "members"), (snap) => {
+      setPeople(snap.docs.map((item) => ({
+        id: item.id,
+        displayName: String(item.data().displayName ?? "Participant"),
+        role: String(item.data().role ?? "participant"),
+        status: String(item.data().status ?? "draft"),
+      })));
+    }, (caught) => setError(errorText(caught)));
+    const unsubPrivate = onSnapshot(collection(getDb(), "events", eventId, "memberPrivate"), (snap) => {
+      const next: Record<string, { email: string; inviteState: string }> = {};
+      snap.docs.forEach((item) => {
+        next[item.id] = { email: String(item.data().email ?? ""), inviteState: String(item.data().inviteState ?? "") };
+      });
+      setPrivates(next);
+    }, (caught) => setError(errorText(caught)));
+    return () => { unsubMembers(); unsubPrivate(); };
+  }, [eventId]);
+  const rows = people
+    .filter((person) => person.role !== "organizer")
+    .sort((a, b) => a.displayName.localeCompare(b.displayName, "fr"));
+  const waiting = rows.filter((person) => canResendInvitation(person.status, privates[person.id]?.email ?? ""));
+  async function resendOne(person: { id: string; displayName: string }) {
+    const accepted = await confirm({
+      title: `Renvoyer l'invitation à ${person.displayName} ?`,
+      description: "Un nouveau message part à l'adresse enregistrée. Le lien précédent ne fonctionne plus.",
+      confirmLabel: "Renvoyer",
+    });
+    if (!accepted) return;
+    setSendingId(person.id);
+    setError("");
+    try {
+      await call("resendInvitation", { eventId, memberId: person.id });
+      toast(`Invitation renvoyée à ${person.displayName}.`);
+    } catch (caught) {
+      setError(errorText(caught));
+    } finally {
+      setSendingId("");
+    }
+  }
   return (
     <div className="space-y-4">
       <h1 className="font-serif text-4xl">Invitations</h1>
-      <p className="text-sm text-muted">Le lien personnel est montré une fois. Un simple aperçu ne consomme pas l'invitation. En local, l'e-mail est capturé et n'est pas vraiment envoyé.</p>
-      {error ? <p className="text-sm text-burgundy">{error}</p> : null}
+      <p className="text-sm text-muted">Renvoyez l'e-mail aux personnes qui l'ont perdu ou qui n'ont pas encore accepté. Celles qui ont déjà accepté gardent leur accès : aucun nouveau lien ne leur est envoyé. Cinq renvois au plus par personne et par jour.</p>
+      {error ? <ErrorState>{error}</ErrorState> : null}
       <div className="flex flex-wrap gap-2">
-        <Button busy={busy} onClick={async () => {
-          setBusy(true);
-          try {
-            const result = await call<{ links: Array<{ memberId: string; url: string }> }>("createInvitations", { eventId, memberIds: [] });
-            setLinks(result.links);
-            toast(result.links.length ? "Liens créés" : "Aucun participant à inviter");
-          } catch (caught) { setError(errorText(caught)); }
-          finally { setBusy(false); }
-        }}>Créer les liens personnels</Button>
+        <Button busy={bulk} disabled={waiting.length === 0 || Boolean(sendingId)} onClick={async () => {
+          const accepted = await confirm({
+            title: waiting.length > 1 ? `Renvoyer ${waiting.length} invitations ?` : "Renvoyer cette invitation ?",
+            description: "Chaque message part à l'adresse enregistrée. Les liens précédents de ces personnes ne fonctionnent plus.",
+            confirmLabel: "Renvoyer",
+          });
+          if (!accepted) return;
+          setBulk(true);
+          setError("");
+          const failed: string[] = [];
+          for (const person of waiting) {
+            try {
+              await call("resendInvitation", { eventId, memberId: person.id });
+            } catch (caught) {
+              failed.push(`${person.displayName} : ${errorText(caught)}`);
+            }
+          }
+          setBulk(false);
+          if (failed.length) setError(failed.join(" "));
+          const sent = waiting.length - failed.length;
+          if (sent > 0) toast(sent > 1 ? `${sent} invitations renvoyées.` : "Invitation renvoyée.");
+        }}>Renvoyer à ceux qui n'ont pas accepté</Button>
         <Button variant="secondary" onClick={async () => {
           try {
             const result = await call<{ url: string }>("rotateJoinCode", { eventId });
@@ -941,13 +1014,23 @@ function Invitations({ eventId }: { eventId: string }) {
         }}>Lien d'inscription au groupe</Button>
       </div>
       {joinUrl ? <p className="break-all rounded-2xl bg-card p-3 text-sm">{joinUrl}</p> : null}
+      {rows.length === 0 ? <EmptyState title="Aucun participant">Enregistrez d'abord les participants et leur adresse.</EmptyState> : null}
       <ul className="space-y-2">
-        {links.map((link) => (
-          <li key={link.memberId} className="break-all rounded-2xl bg-card p-3 text-sm">
-            {link.url}
-            <Button type="button" variant="secondary" className="mt-2" onClick={() => void navigator.clipboard.writeText(link.url)}>Copier</Button>
-          </li>
-        ))}
+        {rows.map((person) => {
+          const email = privates[person.id]?.email ?? "";
+          const resendable = canResendInvitation(person.status, email);
+          return (
+            <li key={person.id} className="flex flex-wrap items-center justify-between gap-3 rounded-2xl bg-card p-3 text-sm">
+              <div>
+                <p className="font-semibold">{person.displayName}</p>
+                <p className="text-muted">{email || "Aucune adresse enregistrée"} · {invitationStateLabel(person.status, privates[person.id]?.inviteState ?? "")}</p>
+              </div>
+              {resendable ? (
+                <Button type="button" variant="secondary" busy={sendingId === person.id} disabled={bulk} onClick={() => void resendOne(person)}>Renvoyer l'e-mail</Button>
+              ) : null}
+            </li>
+          );
+        })}
       </ul>
     </div>
   );

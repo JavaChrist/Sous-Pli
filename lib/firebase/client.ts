@@ -1,8 +1,9 @@
 import { getApps, initializeApp, type FirebaseApp } from "firebase/app";
-import { browserLocalPersistence, connectAuthEmulator, getAuth, setPersistence, type Auth } from "firebase/auth";
+import { browserLocalPersistence, browserSessionPersistence, connectAuthEmulator, getAuth, inMemoryPersistence, setPersistence, type Auth } from "firebase/auth";
 import { connectFirestoreEmulator, getFirestore, initializeFirestore, memoryLocalCache, type Firestore } from "firebase/firestore";
 import { connectFunctionsEmulator, getFunctions, type Functions } from "firebase/functions";
 import { connectStorageEmulator, getStorage, type FirebaseStorage } from "firebase/storage";
+import { AUTH_PERSISTENCE } from "@shared/native-shell";
 
 const firebaseConfig = {
   apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
@@ -14,6 +15,12 @@ const firebaseConfig = {
 };
 
 const configKeys = ["apiKey", "authDomain", "projectId", "storageBucket", "messagingSenderId", "appId"] as const;
+
+function authPersistence(mode: "local" | "session" | "none") {
+  if (mode === "session") return browserSessionPersistence;
+  if (mode === "none") return inMemoryPersistence;
+  return browserLocalPersistence;
+}
 
 export function firebaseConfigured(): boolean {
   return configKeys.every((key) => {
@@ -45,7 +52,7 @@ function app(): FirebaseApp {
 export function getFirebaseAuth(): Auth {
   if (!services.auth) {
     services.auth = getAuth(app());
-    void setPersistence(services.auth, browserLocalPersistence);
+    void setPersistence(services.auth, authPersistence(AUTH_PERSISTENCE));
     if (useEmulators() && !services.auth.emulatorConfig) {
       connectAuthEmulator(services.auth, "http://127.0.0.1:9099", { disableWarnings: true });
     }

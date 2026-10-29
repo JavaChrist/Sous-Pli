@@ -1,6 +1,6 @@
 import { Timestamp, type DocumentData } from "firebase-admin/firestore";
 import { HttpsError } from "firebase-functions/v2/https";
-import { assertOfferForContext, defaultOffer, participantCount, readCommercial, rosterDecision } from "../../shared/billing";
+import { assertOfferForContext, defaultOffer, participantCount, readCommercial, rosterDecision, teamProgressAccess } from "../../shared/billing";
 import { limits } from "../../shared/config";
 import { canEditRoster, canTransition, type EventStatus, type Exclusion } from "../../shared/domain";
 import { constraintsInputSchema, eventInputSchema, membersInputSchema } from "../../shared/schemas";
@@ -344,7 +344,11 @@ export const setEventStatus = callable(async (request, uid) => {
 
 export async function refreshTeamProgress(eventId: string) {
   const event = await db.collection("events").doc(eventId).get();
-  if (readCommercial(event.data() ?? {}).offerId !== "business_plus") return;
+  const summary = db.collection("events").doc(eventId).collection("teamProgress").doc("summary");
+  if (teamProgressAccess(event.data() ?? {}) === "clear") {
+    await summary.delete();
+    return;
+  }
   const members = await readMembers(eventId);
   const secrets = await readPrivate(eventId);
   const groups = new Map<string, { members: number; discovered: number }>();
@@ -356,7 +360,7 @@ export async function refreshTeamProgress(eventId: string) {
     if (secrets.get(member.id)?.discoveredAt) row.discovered += 1;
     groups.set(label, row);
   }
-  await db.collection("events").doc(eventId).collection("teamProgress").doc("summary").set({
+  await summary.set({
     teams: [...groups.entries()].map(([label, row]) => ({ label, ...row })),
     updatedAt: stamp(),
   });

@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">SousPli</string>
+    <string name="title_activity_main">SousPli</string>
+    <string name="package_name">fr.javachrist.souspli</string>
+    <string name="custom_url_scheme">fr.javachrist.souspli</string>
+</resources>

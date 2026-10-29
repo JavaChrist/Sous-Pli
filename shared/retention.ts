@@ -92,6 +92,10 @@ export function mailMetadataDue(sentAt: Date, now: Date): boolean {
   return now.getTime() >= sentAt.getTime() + retentionRules.mailMetadataDays * DAY_MS;
 }
 
+export function accountDeletionConfirmed(value: unknown): boolean {
+  return value === "SUPPRIMER";
+}
+
 export function organizerCanCloseAccount(statuses: string[]): { ok: true } | { ok: false; message: string } {
   const blocking = statuses.filter((status) => (ACTIVE_EVENT_STATUSES as readonly string[]).includes(status));
   if (!blocking.length) return { ok: true };
