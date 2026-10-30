@@ -71,9 +71,14 @@ export const listGiftIdeas = callable(async (request, uid) => {
       return {
         memberId: showNames ? id : null,
         label: showNames ? names.get(id) ?? "Participant" : `Destinataire ${slots.get(id) ?? ""}`.trim(),
-        wishes: items.map((item) => ({ text: String((item as { text?: string }).text ?? "") })).filter((item) => item.text),
-        sizes: String(wish.sizes ?? ""),
-        avoid: String(wish.avoid ?? ""),
+        wishes: items.map((item) => {
+          const entry = item as { text?: string; url?: string; image?: string };
+          return {
+            text: String(entry.text ?? ""),
+            url: String(entry.url ?? ""),
+            image: showNames ? String(entry.image ?? "") : "",
+          };
+        }).filter((item) => item.text || item.url || item.image),
         ideas: visible.forRecipients
           .filter((idea) => idea.aboutMemberId === id)
           .map((idea) => ({ authorName: idea.authorName, text: idea.text })),

@@ -76,16 +76,22 @@ export const constraintsInputSchema = z.object({
 
 export const wishItemSchema = z.object({
   id: z.string().trim().min(4).max(40),
-  text: z.string().trim().min(1).max(limits.maxWishText),
+  text: z.string().trim().max(limits.maxWishText).default(""),
   url: z
     .string()
     .trim()
     .max(500)
     .default("")
     .refine((value) => value === "" || /^https:\/\/.{3,}$/.test(value), "Le lien doit être en HTTPS."),
+  image: z
+    .string()
+    .trim()
+    .max(80)
+    .default("")
+    .refine((value) => value === "" || /^[a-zA-Z0-9._-]{1,80}$/.test(value), "Photo invalide."),
   price: z.string().trim().max(40).default(""),
   note: z.string().trim().max(280).default(""),
-});
+}).refine((item) => item.text.length > 0 || item.url.length > 0 || item.image.length > 0, "Indiquez un souhait, un lien ou une photo.");
 
 export const giftIdeaSchema = z.object({
   eventId: id,

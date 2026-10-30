@@ -222,7 +222,7 @@ function Wizard() {
       {step === 1 ? (
         <div className="space-y-3 rounded-3xl border border-line bg-card p-5">
           <h2 className="font-serif text-2xl">Offre</h2>
-          <p className="text-sm text-muted">Un paiement par événement, sans abonnement. Les participants ne paient jamais. {platform === "android" ? "Dans l’application Android, l’achat n’est pas encore disponible : une offre payante est enregistrée sans lancer de paiement." : "Valider une offre payante ouvre le paiement tout de suite."} Les règles et les participants viennent ensuite. Le tirage attend la confirmation serveur.</p>
+          <p className="text-sm text-muted">Un paiement par événement, sans abonnement. Les participants ne paient jamais. {platform === "android" ? "Valider une offre payante ouvre le paiement Google Play." : "Valider une offre payante ouvre le paiement tout de suite."} Les règles et les participants viennent ensuite. Le tirage attend la confirmation serveur.</p>
           <Field label="Formule">
             <SelectInput value={draft.offerId} onChange={(event) => setDraft({ ...draft, offerId: event.target.value as EventDraft["offerId"] })}>
               {Object.values(CATALOG).filter((offer) => offer.contexts.includes(draft.context)).map((offer) => (

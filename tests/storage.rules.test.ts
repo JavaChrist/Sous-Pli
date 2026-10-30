@@ -33,9 +33,11 @@ test("un tiers ne lit pas la photo de souhait", async () => {
   await assertFails(storage.ref("events/event0001/wishes/mem00001/photo.jpg").getMetadata());
 });
 
-test("personne ne dépose une nouvelle photo de souhait", async () => {
-  const storage = env.authenticatedContext("member01").storage();
-  await assertFails(storage.ref("events/event0001/wishes/mem00001/nouvelle.jpg").put(Buffer.from("jpg"), { contentType: "image/jpeg" }).then());
+test("le participant dépose sa photo de souhait, un tiers non", async () => {
+  const own = env.authenticatedContext("member01").storage();
+  const other = env.authenticatedContext("autre0001").storage();
+  await assertSucceeds(own.ref("events/event0001/wishes/mem00001/nouvelle.jpg").put(Buffer.from("jpg"), { contentType: "image/jpeg" }).then());
+  await assertFails(other.ref("events/event0001/wishes/mem00001/intrus.jpg").put(Buffer.from("jpg"), { contentType: "image/jpeg" }).then());
 });
 
 test("le participant lit sa photo et l'organisateur aussi", async () => {

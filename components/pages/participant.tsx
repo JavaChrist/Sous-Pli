@@ -1,6 +1,7 @@
 "use client";
 
 import { collection, collectionGroup, doc, onSnapshot, orderBy, query, where } from "firebase/firestore";
+import { deleteObject, ref as storageObject, uploadBytes } from "firebase/storage";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { RequireAuth } from "@/components/require-auth";
@@ -10,7 +11,7 @@ import { Field, SelectInput, TextArea, TextInput } from "@/components/ui/field";
 import { Modal } from "@/components/ui/modal";
 import { EmptyState, ErrorState, LoadingState } from "@/components/ui/states";
 import { call, errorText } from "@/lib/firebase/api";
-import { getDb, getFirebaseAuth } from "@/lib/firebase/client";
+import { getBucket, getDb, getFirebaseAuth } from "@/lib/firebase/client";
 import { formatWhen, memberStatusLabel, statusLabel } from "@/lib/format";
 import { signInAnonymously } from "firebase/auth";
 import { useRouter } from "next/navigation";
@@ -94,12 +95,35 @@ export function WishesPage({ eventId }: { eventId: string }) {
   return <RequireAuth><Wishes eventId={eventId} /></RequireAuth>;
 }
 
+type WishItem = { id: string; text: string; url: string; image: string; price: string; note: string };
+
+function newWishId() {
+  if (typeof crypto.randomUUID === "function") return crypto.randomUUID();
+  return `souhait-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+}
+
+function wishPhotoName(itemId: string, type: string) {
+  const extension = type === "image/png" ? "png" : type === "image/webp" ? "webp" : "jpg";
+  return `${itemId}.${extension}`.replace(/[^a-zA-Z0-9._-]/g, "").slice(0, 80);
+}
+
+function WishPhoto({ eventId, memberId, fileName }: { eventId: string; memberId: string; fileName: string }) {
+  const [src, setSrc] = useState("");
+  useEffect(() => {
+    let stopped = false;
+    void call<{ contentType: string; base64: string }>("getWishImage", { eventId, memberId, fileName })
+      .then((image) => { if (!stopped) setSrc(`data:${image.contentType};base64,${image.base64}`); })
+      .catch(() => { if (!stopped) setSrc(""); });
+    return () => { stopped = true; };
+  }, [eventId, memberId, fileName]);
+  if (!src) return null;
+  return <img src={src} alt="Photo du souhait" className="max-h-40 rounded-2xl" />;
+}
+
 function Wishes({ eventId }: { eventId: string }) {
   const { user } = useAuth();
   const toast = useToast();
-  const [items, setItems] = useState<Array<{ id: string; text: string; url: string; price: string; note: string }>>([]);
-  const [sizes, setSizes] = useState("");
-  const [avoid, setAvoid] = useState("");
+  const [items, setItems] = useState<WishItem[]>([]);
   const [error, setError] = useState("");
   const [memberId, setMemberId] = useState("");
   useEffect(() => {
@@ -110,31 +134,76 @@ function Wishes({ eventId }: { eventId: string }) {
       if (!id) return;
       onSnapshot(doc(getDb(), "events", eventId, "wishlists", id), (wish) => {
         if (!wish.exists()) return;
-        setItems((wish.data().items as typeof items) ?? []);
-        setSizes(String(wish.data().sizes ?? ""));
-        setAvoid(String(wish.data().avoid ?? ""));
+        const stored = (wish.data().items ?? []) as Array<Partial<WishItem>>;
+        setItems(stored.map((item) => ({
+          id: String(item.id ?? newWishId()),
+          text: String(item.text ?? ""),
+          url: String(item.url ?? ""),
+          image: String(item.image ?? ""),
+          price: String(item.price ?? ""),
+          note: String(item.note ?? ""),
+        })));
       });
     });
   }, [eventId, user]);
+  function patch(index: number, partial: Partial<WishItem>) {
+    setItems((current) => current.map((entry, itemIndex) => itemIndex === index ? { ...entry, ...partial } : entry));
+  }
+  async function removePhoto(index: number, fileName: string) {
+    if (memberId && fileName) {
+      await deleteObject(storageObject(getBucket(), `events/${eventId}/wishes/${memberId}/${fileName}`)).catch(() => undefined);
+    }
+    patch(index, { image: "" });
+  }
   return (
     <form className="mx-auto max-w-2xl space-y-4" onSubmit={async (event) => {
       event.preventDefault();
+      setError("");
+      const filled = items.filter((item) => item.text.trim() || item.url.trim() || item.image);
       try {
-        await call("saveWishlist", { eventId, items, sizes, avoid });
+        await call("saveWishlist", { eventId, items: filled, sizes: "", avoid: "" });
         toast("Souhaits enregistrés");
       } catch (caught) { setError(errorText(caught)); }
     }}>
       <h1 className="font-serif text-4xl">Souhaits</h1>
-      <p className="text-sm text-muted">Liens HTTPS seulement. N'indiquez pas d'information sensible inutile. L'envoi de photos est désactivé tant que leur affichage et leur suppression ne sont pas raccordés.</p>
+      <p className="text-sm text-muted">Indiquez ce que vous souhaitez. Le lien, s'il y en a un, doit commencer par https://. La photo est facultative : vous pouvez l'afficher et la retirer.</p>
       {items.map((item, index) => (
-        <div key={item.id} className="space-y-2 rounded-3xl border border-line bg-card p-4">
-          <TextInput value={item.text} onChange={(event) => setItems(items.map((entry, itemIndex) => itemIndex === index ? { ...entry, text: event.target.value } : entry))} placeholder="Idée" />
-          <TextInput value={item.url} onChange={(event) => setItems(items.map((entry, itemIndex) => itemIndex === index ? { ...entry, url: event.target.value } : entry))} placeholder="https://" />
+        <div key={item.id} className="space-y-3 rounded-3xl border border-line bg-card p-4">
+          <Field label="Souhait">
+            <TextArea value={item.text} maxLength={280} onChange={(event) => patch(index, { text: event.target.value })} placeholder="Ce que vous aimeriez recevoir" />
+          </Field>
+          <Field label="Lien HTTPS">
+            <TextInput value={item.url} onChange={(event) => patch(index, { url: event.target.value })} placeholder="https://" inputMode="url" />
+          </Field>
+          <Field label="Photo" hint="Facultative. JPEG, PNG ou WebP, 2 Mo maximum.">
+            <input className="block text-sm" type="file" accept="image/jpeg,image/png,image/webp" onChange={async (event) => {
+              const file = event.target.files?.[0];
+              event.target.value = "";
+              if (!file) return;
+              if (!memberId) { setError("Rejoignez l'échange avant d'ajouter une photo."); return; }
+              if (file.size > 2 * 1024 * 1024) { setError("La photo dépasse 2 Mo."); return; }
+              if (!["image/jpeg", "image/png", "image/webp"].includes(file.type)) { setError("Choisissez une image JPEG, PNG ou WebP."); return; }
+              const fileName = wishPhotoName(item.id, file.type);
+              try {
+                if (item.image && item.image !== fileName) await deleteObject(storageObject(getBucket(), `events/${eventId}/wishes/${memberId}/${item.image}`)).catch(() => undefined);
+                await uploadBytes(storageObject(getBucket(), `events/${eventId}/wishes/${memberId}/${fileName}`), file, { contentType: file.type });
+                patch(index, { image: fileName });
+                setError("");
+              } catch (caught) { setError(errorText(caught)); }
+            }} />
+          </Field>
+          {item.image && memberId ? <WishPhoto eventId={eventId} memberId={memberId} fileName={item.image} /> : null}
+          <div className="flex flex-wrap gap-2">
+            {item.image ? <Button type="button" variant="danger" onClick={() => void removePhoto(index, item.image)}>Retirer la photo</Button> : null}
+            <Button type="button" variant="danger" onClick={() => {
+              const fileName = item.image;
+              setItems((current) => current.filter((_, itemIndex) => itemIndex !== index));
+              if (memberId && fileName) void deleteObject(storageObject(getBucket(), `events/${eventId}/wishes/${memberId}/${fileName}`)).catch(() => undefined);
+            }}>Retirer cette idée</Button>
+          </div>
         </div>
       ))}
-      <Button type="button" variant="secondary" onClick={() => setItems([...items, { id: crypto.randomUUID(), text: "", url: "", price: "", note: "" }])}>Ajouter une idée</Button>
-      <Field label="Tailles"><TextInput value={sizes} onChange={(event) => setSizes(event.target.value)} /></Field>
-      <Field label="À éviter"><TextArea value={avoid} onChange={(event) => setAvoid(event.target.value)} /></Field>
+      <Button type="button" variant="secondary" onClick={() => setItems([...items, { id: newWishId(), text: "", url: "", image: "", price: "", note: "" }])}>Ajouter une idée</Button>
       {error ? <p className="text-sm text-burgundy">{error}</p> : null}
       <Button type="submit">Enregistrer</Button>
     </form>
@@ -147,9 +216,7 @@ type IdeaBoard = {
   recipients: Array<{
     memberId: string | null;
     label: string;
-    wishes: Array<{ text: string }>;
-    sizes: string;
-    avoid: string;
+    wishes: Array<{ text: string; url?: string; image?: string }>;
     ideas: Array<{ authorName: string; text: string }>;
   }>;
 };
@@ -196,9 +263,13 @@ function Ideas({ eventId }: { eventId: string }) {
       {board?.recipients.map((recipient) => (
         <article key={`${recipient.memberId ?? "secret"}-${recipient.label}`} className="space-y-2 rounded-3xl border border-line bg-card p-5">
           <h2 className="font-serif text-2xl">{recipient.label}</h2>
-          {recipient.wishes.length ? recipient.wishes.map((wish, index) => <p key={`${recipient.label}-${index}`} className="text-sm">{wish.text}</p>) : <p className="text-sm text-muted">Cette personne n'a pas encore écrit de souhait.</p>}
-          {recipient.sizes ? <p className="text-sm text-muted">Tailles : {recipient.sizes}</p> : null}
-          {recipient.avoid ? <p className="text-sm text-muted">À éviter : {recipient.avoid}</p> : null}
+          {recipient.wishes.length ? recipient.wishes.map((wish, index) => (
+            <div key={`${recipient.label}-${index}`} className="space-y-1">
+              {wish.text ? <p className="text-sm">{wish.text}</p> : null}
+              {wish.url?.startsWith("https://") ? <a className="text-sm text-pine underline" href={wish.url}>{wish.url}</a> : null}
+              {wish.image && recipient.memberId ? <WishPhoto eventId={eventId} memberId={recipient.memberId} fileName={wish.image} /> : null}
+            </div>
+          )) : <p className="text-sm text-muted">Cette personne n'a pas encore écrit de souhait.</p>}
           <h3 className="text-sm font-semibold">Idées notées par les autres</h3>
           {recipient.ideas.length ? recipient.ideas.map((idea) => (
             <p key={`${idea.authorName}-${idea.text}`} className="text-sm"><strong>{idea.authorName}.</strong> {idea.text}</p>

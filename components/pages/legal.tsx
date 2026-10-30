@@ -71,7 +71,7 @@ export function PrivacyDocument() {
           <li>Compte et authentification : identifiant, nom affiché, e-mail, données de connexion.</li>
           <li>Invitations et inscriptions, y compris lorsqu'un organisateur communique une adresse.</li>
           <li>Événement, groupes, exclusions et attributions.</li>
-          <li>Souhaits et liens. L'envoi de photos de souhaits n'est pas proposé.</li>
+          <li>Souhaits, liens HTTPS et photo facultative. La photo n'est visible que par son auteur, l'organisateur et, lorsque l'identité est montrée, la personne qui l'a tirée.</li>
           <li>Messages et copies associées, signalements et blocages.</li>
           <li>Notifications internes.</li>
           <li>E-mails transactionnels.</li>
@@ -157,7 +157,7 @@ export function TermsDocument() {
             ))}
           </tbody>
         </table>
-        <p>Seul l'organisateur paie. Avant le tirage, le passage d'Entreprise à Entreprise Plus coûte 20 €. La duplication d'un événement ne transfère pas les droits payés. Les fonctions de chaque offre sont celles décrites sur la page Tarifs. Les notifications push du système et l'envoi de photos de souhaits ne font pas partie des fonctions vendues.</p>
+        <p>Seul l'organisateur paie. Avant le tirage, le passage d'Entreprise à Entreprise Plus coûte 20 €. La duplication d'un événement ne transfère pas les droits payés. Les fonctions de chaque offre sont celles décrites sur la page Tarifs. Les notifications push du système ne font pas partie des fonctions vendues. La photo d'un souhait reste disponible pour tous.</p>
       </Section>
       <Section title="5. Commande et durée">
         <p>Le prix, la capacité et la fin d'accès sont fixés par le serveur et rappelés avant la commande, avec la version des conditions. Le retour du navigateur ne débloque pas l'offre. Aucune donnée de carte n'est stockée. Un paiement échoué, annulé ou expiré laisse l'événement en place. Le paiement ne lance pas le tirage.</p>

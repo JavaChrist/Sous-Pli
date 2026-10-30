@@ -75,7 +75,10 @@ export const getWishImage = callable(async (request, uid) => {
   if (!exists) throw new HttpsError("not-found", "Image introuvable.");
   const [buffer] = await file.download();
   if (buffer.length > limits.maxImageBytes) throw new HttpsError("resource-exhausted", "Image trop volumineuse.");
-  return { contentType: "image/jpeg", base64: buffer.toString("base64") };
+  const [metadata] = await file.getMetadata();
+  const contentType = String(metadata.contentType ?? "");
+  if (!/^image\/(jpeg|png|webp)$/.test(contentType)) throw new HttpsError("failed-precondition", "Cette photo n'est pas une image acceptée.");
+  return { contentType, base64: buffer.toString("base64") };
 });
 
 export const sendMessage = callable(async (request, uid) => {
