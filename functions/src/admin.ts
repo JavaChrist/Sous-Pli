@@ -21,7 +21,7 @@ const enforceAppCheck = process.env.ENFORCE_APP_CHECK === "true";
 
 export function callable<T>(
   handler: (request: CallableRequest<T>, uid: string) => Promise<unknown>,
-  options?: { auth?: boolean; timeoutSeconds?: number; memory?: "256MiB" | "512MiB" },
+  options?: { auth?: boolean; timeoutSeconds?: number; memory?: "256MiB" | "512MiB"; serviceAccount?: string },
 ) {
   return onCall(
     {
@@ -32,6 +32,7 @@ export function callable<T>(
       memory: options?.memory ?? "256MiB",
       cpu: 0.167,
       maxInstances: 1,
+      ...(options?.serviceAccount ? { serviceAccount: options.serviceAccount } : {}),
     },
     async (request) => {
       const uid = request.auth?.uid ?? "";

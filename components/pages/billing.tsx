@@ -21,9 +21,11 @@ import {
   readCommercial,
   type OfferId,
 } from "@shared/billing";
-import { ANDROID_PURCHASE_UNAVAILABLE, checkoutLaunch } from "@shared/native-shell";
+import { checkoutLaunch, PLAY_PRODUCTS_UNAVAILABLE } from "@shared/native-shell";
+import { playProductForDue } from "@shared/play";
 import { accessEndInstant } from "@shared/retention";
 import { formatInZone } from "@shared/time";
+import { loadPlayPrice, startPlayCheckout } from "@/lib/native/play";
 import { useShellPlatform } from "@/lib/native/shell";
 
 export function PricingPage() {
@@ -164,6 +166,8 @@ function Checkout({
   const [error, setError] = useState("");
   const [info, setInfo] = useState("");
   const [busy, setBusy] = useState(false);
+  const [playPrice, setPlayPrice] = useState("");
+  const [playMissing, setPlayMissing] = useState(false);
   const platform = useShellPlatform();
   function setPaying(next: boolean) {
     setBusy(next);
@@ -179,12 +183,35 @@ function Checkout({
     const commercial = readCommercial(data);
     setOfferId(commercial.offerId);
   }, (caught) => setError(errorText(caught))), [eventId]);
+  const duePreview = event ? amountDue({ offerId, paidOfferId: readCommercial(event).paidOfferId, eventStatus: String(event.status ?? "draft") }) : null;
+  const playProduct = duePreview ? playProductForDue(duePreview.kind, offerId) : null;
+  useEffect(() => {
+    if (platform !== "android" || !playProduct) {
+      setPlayPrice("");
+      setPlayMissing(false);
+      return;
+    }
+    let stopped = false;
+    setPlayPrice("");
+    setPlayMissing(false);
+    void loadPlayPrice(playProduct).then((price) => {
+      if (stopped) return;
+      if (!price) setPlayMissing(true);
+      else setPlayPrice(price);
+    });
+    return () => { stopped = true; };
+  }, [platform, playProduct]);
   if (error && !event) return <ErrorState>{error}</ErrorState>;
   if (!event) return <LoadingState />;
   const context = event.context === "organization" ? "organization" : event.context === "friends" ? "friends" : "family";
   const choices = (Object.values(CATALOG)).filter((offer) => offer.contexts.includes(context));
   const selected = CATALOG[offerId];
   const due = amountDue({ offerId, paidOfferId: readCommercial(event).paidOfferId, eventStatus: String(event.status ?? "draft") });
+  const route = checkoutLaunch(platform, due.kind);
+  const consentsMissing = due.cents > 0 && (!accepted || (context === "organization" && !acceptedProcessing));
+  const priceLine = due.kind === "quote" ? "Sur devis" : route === "play" ? (playPrice || "prix Google Play en cours de lecture") : formatEuros(due.cents);
+  const payLabel = route === "play" ? (playPrice ? `Payer ${playPrice}` : "Prix Google Play indisponible") : "Continuer";
+  const payDisabled = (route === "mollie" && consentsMissing) || (route === "play" && (consentsMissing || !playPrice || playMissing));
   return (
     <form className={embedded ? "space-y-4" : "mx-auto max-w-2xl space-y-4"} onSubmit={async (formEvent) => {
       formEvent.preventDefault();
@@ -202,8 +229,16 @@ function Checkout({
           return;
         }
         const route = checkoutLaunch(platform, due.kind);
-        if (route === "android-unavailable") {
-          setInfo(ANDROID_PURCHASE_UNAVAILABLE);
+        if (route === "play") {
+          if (playMissing || !playPrice) {
+            setInfo(PLAY_PRODUCTS_UNAVAILABLE);
+            return;
+          }
+          const outcome = await startPlayCheckout({ eventId, acceptedTerms: accepted, acceptedProcessing });
+          if (outcome === "cancelled") return;
+          setInfo(outcome === "succeeded"
+            ? "Le serveur a confirmé l'achat Google Play. Le tirage n'est pas lancé."
+            : "Le paiement Google Play est en attente. L'offre n'est pas débloquée.");
           return;
         }
         if (route !== "mollie") {
@@ -230,11 +265,12 @@ function Checkout({
         <p>Événement : {String(event.name)}</p>
         <p>Offre : {selected.title}</p>
         <p>Capacité : {selected.capacity ? `${selected.capacity} participants` : "sur devis, au-delà de 300"}</p>
-        <p>Prix final de cette étape : {due.kind === "quote" ? "Sur devis" : formatEuros(due.cents)}</p>
+        <p>Prix final de cette étape : {priceLine}</p>
         <p>{due.message}</p>
         <p className="mt-2 text-muted">Aucun frais de plateforme n'est ajouté. {billingPolicy.taxNote}</p>
-        {checkoutLaunch(platform, due.kind) === "mollie" ? <p className="mt-2 text-muted">La suite s'ouvre chez Mollie. Aucune carte n'est enregistrée dans Sous pli. Le retour sur cette application ne débloque pas l'offre : le serveur relit l'état du paiement.</p> : null}
-        {checkoutLaunch(platform, due.kind) === "android-unavailable" ? <p className="mt-2 text-muted">{ANDROID_PURCHASE_UNAVAILABLE}</p> : null}
+        {route === "mollie" ? <p className="mt-2 text-muted">La suite s'ouvre chez Mollie. Aucune carte n'est enregistrée dans Sous pli. Le retour sur cette application ne débloque pas l'offre : le serveur relit l'état du paiement.</p> : null}
+        {route === "play" ? <p className="mt-2 text-muted">Le paiement s'ouvre dans Google Play. Le bouton affiche le prix renvoyé par Play. Le retour dans l'application ne débloque pas l'offre : le serveur vérifie l'achat.</p> : null}
+        {playMissing ? <p className="mt-2 text-muted">{PLAY_PRODUCTS_UNAVAILABLE}</p> : null}
         <p className="mt-2 text-muted">{accessText(event)}</p>
         {offerId === "business_plus" ? <p className="mt-2 text-muted">Si Entreprise est déjà payée, le serveur demande 20 €, la différence annoncée, et ignore tout autre montant.</p> : null}
       </div>
@@ -254,7 +290,7 @@ function Checkout({
       {info ? <p className="text-sm text-pine">{info}</p> : null}
       <div className="flex flex-wrap justify-end gap-2">
         {onLater ? <Button type="button" variant="secondary" onClick={onLater} disabled={busy}>Plus tard</Button> : null}
-        <Button type="submit" busy={busy} disabled={checkoutLaunch(platform, due.kind) === "mollie" && (!accepted || (context === "organization" && !acceptedProcessing))}>{checkoutLaunch(platform, due.kind) === "android-unavailable" ? "Enregistrer sans achat" : "Continuer"}</Button>
+        <Button type="submit" busy={busy} disabled={payDisabled}>{payLabel}</Button>
       </div>
       <p className="text-sm text-muted">{billingPolicy.invoiceNote}</p>
     </form>

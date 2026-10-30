@@ -6,7 +6,7 @@ import { GoogleAuthProvider, linkWithCredential, signInWithCredential, signInWit
 import { accountExportTransport, androidBackAction, googleSignInPlan, isPreparedEntryPath, keepsAnonymousSession, linkDisposition, type ShellPlatform } from "@shared/native-shell";
 
 interface GoogleNativePlugin {
-  signIn(): Promise<{ idToken: string }>;
+  signIn(): Promise<{ idToken?: string; cancelled?: boolean }>;
 }
 
 interface FilesNativePlugin {
@@ -31,14 +31,16 @@ function subscribeShell() {
   return () => undefined;
 }
 
-export async function signInWithGoogle(auth: Auth): Promise<UserCredential> {
+export async function signInWithGoogle(auth: Auth): Promise<UserCredential | null> {
   const plan = googleSignInPlan({
     platform: shellPlatform(),
     anonymous: Boolean(auth.currentUser?.isAnonymous),
     purpose: "sign-in",
   });
   if (plan === "popup") return signInWithPopup(auth, new GoogleAuthProvider());
-  const credential = GoogleAuthProvider.credential((await GoogleNative.signIn()).idToken);
+  const native = await GoogleNative.signIn();
+  if (native.cancelled || !native.idToken) return null;
+  const credential = GoogleAuthProvider.credential(native.idToken);
   if (plan === "credential-link") {
     const current = auth.currentUser;
     if (!current) throw new Error("La session d’invitation a disparu. Aucun autre compte n’a été ouvert.");
@@ -58,7 +60,9 @@ export async function signInWithGoogle(auth: Auth): Promise<UserCredential> {
 export async function reauthenticateWithGoogle(user: User): Promise<UserCredential> {
   const plan = googleSignInPlan({ platform: shellPlatform(), anonymous: user.isAnonymous, purpose: "reauth" });
   if (plan === "popup") return reauthenticateWithPopup(user, new GoogleAuthProvider());
-  const credential = GoogleAuthProvider.credential((await GoogleNative.signIn()).idToken);
+  const native = await GoogleNative.signIn();
+  if (native.cancelled || !native.idToken) throw new Error("La confirmation Google a été fermée avant la fin.");
+  const credential = GoogleAuthProvider.credential(native.idToken);
   return reauthenticateWithCredential(user, credential);
 }
 

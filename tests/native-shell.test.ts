@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest";
 import {
-  ANDROID_PURCHASE_UNAVAILABLE,
+  PLAY_PRODUCTS_UNAVAILABLE,
   AUTH_PERSISTENCE,
   accountExportTransport,
   androidBackAction,
@@ -30,16 +30,16 @@ describe("coque Android", () => {
     expect(AUTH_PERSISTENCE).toBe("local");
   });
 
-  test("Android n'ouvre pas Mollie, le web le conserve pour un achat ou un supplément", () => {
-    expect(checkoutLaunch("android", "purchase")).toBe("android-unavailable");
-    expect(checkoutLaunch("android", "upgrade")).toBe("android-unavailable");
+  test("Android ouvre Play et le web conserve Mollie", () => {
+    expect(checkoutLaunch("android", "purchase")).toBe("play");
+    expect(checkoutLaunch("android", "upgrade")).toBe("play");
     expect(checkoutLaunch("web", "purchase")).toBe("mollie");
     expect(checkoutLaunch("web", "upgrade")).toBe("mollie");
     expect(checkoutLaunch("android", "settled")).toBe("record-only");
     expect(checkoutLaunch("android", "included")).toBe("record-only");
     expect(checkoutLaunch("android", "quote")).toBe("record-only");
-    expect(ANDROID_PURCHASE_UNAVAILABLE).toMatch(/pas encore disponible/);
-    expect(ANDROID_PURCHASE_UNAVAILABLE).toMatch(/serveur/);
+    expect(PLAY_PRODUCTS_UNAVAILABLE).toMatch(/indisponibles/);
+    expect(PLAY_PRODUCTS_UNAVAILABLE).toMatch(/Mollie/);
   });
 
   test("le retour sort à la racine et les liens tiers quittent l'application", () => {

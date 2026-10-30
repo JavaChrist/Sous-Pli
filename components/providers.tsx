@@ -6,6 +6,7 @@ import { clearDraft } from "@/lib/draft";
 import { call } from "@/lib/firebase/api";
 import { firebaseConfigured, getFirebaseAuth } from "@/lib/firebase/client";
 import { watchAndroidChrome } from "@/lib/native/shell";
+import { watchPlayResume } from "@/lib/native/play";
 import { Button } from "./ui/button";
 import { Modal } from "./ui/modal";
 
@@ -64,6 +65,11 @@ export function Providers({ children }: { children: ReactNode }) {
       if (next) void call("ensureProfile").catch(() => undefined);
     });
   }, [configured]);
+
+  useEffect(() => {
+    if (!user) return;
+    return watchPlayResume();
+  }, [user]);
 
   useEffect(() => {
     if (!toast) return;

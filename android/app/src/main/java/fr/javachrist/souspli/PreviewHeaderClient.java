@@ -33,8 +33,9 @@ public class PreviewHeaderClient extends BridgeWebViewClient {
     public WebResourceResponse shouldInterceptRequest(WebView view, WebResourceRequest request) {
         Uri url = request.getUrl();
         String host = url.getHost();
+        boolean loopback = "10.0.2.2".equals(host) || "127.0.0.1".equals(host) || "localhost".equalsIgnoreCase(host);
         boolean trusted = host != null && host.equalsIgnoreCase(trustedHost) && !"souspli.fr".equalsIgnoreCase(host);
-        if (!trusted || protectionHeader.isEmpty() || !"GET".equals(request.getMethod())) {
+        if (!trusted || loopback || !"https".equalsIgnoreCase(url.getScheme()) || protectionHeader.isEmpty() || !"GET".equals(request.getMethod())) {
             return super.shouldInterceptRequest(view, request);
         }
         HttpURLConnection connection = null;

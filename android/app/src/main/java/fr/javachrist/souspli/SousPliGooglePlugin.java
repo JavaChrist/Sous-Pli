@@ -17,6 +17,7 @@ import com.getcapacitor.JSObject;
 import com.getcapacitor.Plugin;
 import com.getcapacitor.PluginCall;
 import com.getcapacitor.PluginMethod;
+import android.util.Log;
 import com.getcapacitor.annotation.CapacitorPlugin;
 import com.google.android.libraries.identity.googleid.GetSignInWithGoogleOption;
 import com.google.android.libraries.identity.googleid.GoogleIdTokenCredential;
@@ -69,8 +70,15 @@ public class SousPliGooglePlugin extends Plugin {
 
                 @Override
                 public void onError(GetCredentialException error) {
-                    String code = error instanceof GetCredentialCancellationException ? "canceled" : "failed";
-                    call.reject("Connexion Google interrompue.", code);
+                    if (error instanceof GetCredentialCancellationException) {
+                        Log.i("SousPliGoogle", "Sélection Google fermée avant un jeton.");
+                        JSObject payload = new JSObject();
+                        payload.put("cancelled", true);
+                        call.resolve(payload);
+                        return;
+                    }
+                    Log.w("SousPliGoogle", error.getClass().getSimpleName() + ": " + error.getMessage());
+                    call.reject("La connexion Google n'a pas abouti.", error.getClass().getSimpleName());
                 }
             }
         );

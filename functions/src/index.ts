@@ -7,4 +7,5 @@ export { saveWishlist, getWishImage, sendMessage, reportThread, blockThread, sav
 export { listGiftIdeas, addGiftIdea, deleteGiftIdea } from "./ideas";
 export { updatePracticalInfo, duplicateEvent, cancelEvent, archiveEvent, deleteEvent } from "./lifecycle";
 export { selectOffer, createCheckout, getPaymentStatus, simulateProviderNotice, submitQuote, addCoOrganizer, removeCoOrganizer, requestWithdrawal, processWithdrawal, mollieWebhook } from "./billing";
+export { createPlayOrder, submitPlayPurchase, reconcilePlayPurchases, playDeveloperNotification, playConsumeWorker } from "./play";
 export { retentionWorker, previewRetention } from "./retention";

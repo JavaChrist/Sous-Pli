@@ -36,7 +36,7 @@ export const viewport: Viewport = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="fr" data-scroll-behavior="smooth">
+    <html lang="fr" data-scroll-behavior="smooth" suppressHydrationWarning>
       <body className={`${outfit.variable} ${fraunces.variable} font-sans antialiased`}>
         <Providers>
           <Shell deploymentVersion={process.env.VERCEL_GIT_COMMIT_SHA ?? "dev"}>{children}</Shell>

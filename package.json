@@ -9,7 +9,7 @@
     "lint": "eslint .",
     "test": "vitest run",
     "test:rules": "firebase emulators:exec --only firestore,storage --project sous-pli-local \"npx vitest run --fileParallelism false tests/rules.test.ts tests/storage.rules.test.ts\"",
-    "build:functions": "esbuild functions/src/index.ts --bundle --platform=node --target=node22 --outfile=functions/lib/index.js --format=cjs --external:firebase-admin --external:firebase-functions --sourcemap",
+    "build:functions": "esbuild functions/src/index.ts --bundle --platform=node --target=node22 --outfile=functions/lib/index.js --format=cjs --external:firebase-admin --external:firebase-functions --external:google-auth-library --sourcemap",
     "emulators": "npm run build:functions && node scripts/start-emulators.mjs",
     "seed": "tsx scripts/seed.ts",
     "typecheck": "tsc --noEmit",

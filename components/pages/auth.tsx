@@ -11,7 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Field, PasswordInput, TextInput } from "@/components/ui/field";
 import { useSensitive } from "@/components/providers";
 import { call, errorText } from "@/lib/firebase/api";
-import { getFirebaseAuth } from "@/lib/firebase/client";
+import { assertEmulatorBackend, getFirebaseAuth, useEmulators } from "@/lib/firebase/client";
 import { signInWithGoogle } from "@/lib/native/shell";
 import { PASSWORD_RESET_NOTICE } from "@shared/auth-action";
 
@@ -42,6 +42,7 @@ export function AuthScreen({ mode }: { mode: "login" | "signup" | "reset" }) {
     setError("");
     setInfo("");
     try {
+      if (useEmulators()) assertEmulatorBackend();
       const auth = getFirebaseAuth();
       if (mode === "reset") {
         const result = await call<{ message: string }>("requestPasswordReset", { email: values.email });
@@ -74,7 +75,16 @@ export function AuthScreen({ mode }: { mode: "login" | "signup" | "reset" }) {
   return (
     <div className="mx-auto max-w-md space-y-4">
       <h1 className="font-serif text-4xl text-pine-deep">{title}</h1>
-      <form className="space-y-4 rounded-3xl border border-line bg-card p-5" onSubmit={form.handleSubmit(onSubmit)}>
+      <form
+        method="post"
+        action="/connexion"
+        data-souspli-form="auth"
+        className="space-y-4 rounded-3xl border border-line bg-card p-5"
+        onSubmit={(event) => {
+          event.preventDefault();
+          void form.handleSubmit(onSubmit)(event);
+        }}
+      >
         {mode === "signup" ? (
           <Field className="gap-4" label="Nom affiché" error={form.formState.errors.name?.message}>
             <TextInput {...form.register("name")} autoComplete="name" />
@@ -110,6 +120,7 @@ export function AuthScreen({ mode }: { mode: "login" | "signup" | "reset" }) {
                 return;
               }
               const result = await signInWithGoogle(getFirebaseAuth());
+              if (!result) return;
               if (mode === "signup") {
                 await call("ensureProfile", { acceptedTerms: true });
                 if (!result.user.emailVerified) await call("requestEmailVerification");

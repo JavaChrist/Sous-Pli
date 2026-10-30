@@ -80,13 +80,16 @@ export const resendInvitation = callable(async (request, uid) => {
   const member = members.find((item) => item.id === memberId);
   if (!member) throw new HttpsError("not-found", "Ce participant est introuvable.");
   if (member.role === "organizer") throw new HttpsError("failed-precondition", "L'organisateur ne reçoit pas cette invitation.");
-  if (member.status === "joined") throw new HttpsError("failed-precondition", "Cette personne a déjà accepté. Aucun nouveau lien n'est envoyé.");
   if (member.status === "pending") throw new HttpsError("failed-precondition", "Cette demande attend votre validation, pas un nouvel e-mail.");
+  const joined = member.status === "joined";
   const privateSnap = await db.collection("events").doc(eventId).collection("memberPrivate").doc(memberId).get();
   const email = String(privateSnap.data()?.email ?? "");
   if (!email) throw new HttpsError("failed-precondition", "Aucune adresse n'est enregistrée pour cette personne. Ajoutez-la dans Participants.");
-  const alreadySent = member.status === "invited" || privateSnap.data()?.inviteState === "pending" || privateSnap.data()?.inviteState === "revoked";
+  const alreadySent = joined || member.status === "invited" || privateSnap.data()?.inviteState === "pending" || privateSnap.data()?.inviteState === "revoked" || privateSnap.data()?.inviteState === "accepted";
   const token = await issuePersonalToken(eventId, memberId);
+  if (joined) {
+    await db.collection("events").doc(eventId).collection("memberPrivate").doc(memberId).set({ inviteState: "accepted", updatedAt: stamp() }, { merge: true });
+  }
   const url = `${appOrigin()}/invitation/${token}`;
   const sent = await db.collection("events").doc(eventId).collection("memberPrivate").doc(memberId).get();
   const theme = await loadTheme(eventId, data);
@@ -101,7 +104,7 @@ export const resendInvitation = callable(async (request, uid) => {
     vars: templateVars(data, member.displayName, await userName(uid), url),
     replyTo: theme.replyToEnabled && user.emailVerified ? user.email ?? "" : "",
   });
-  if (member.status !== "invited") {
+  if (!joined && member.status !== "invited") {
     await db.collection("events").doc(eventId).collection("members").doc(memberId).set({ status: "invited" }, { merge: true });
   }
   await audit(eventId, uid, "invites.resend");

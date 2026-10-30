@@ -926,7 +926,7 @@ function invitationStateLabel(status: string, inviteState: string): string {
 }
 
 function canResendInvitation(status: string, email: string): boolean {
-  return Boolean(email.trim()) && status !== "joined" && status !== "pending";
+  return Boolean(email.trim()) && status !== "pending";
 }
 
 function Invitations({ eventId }: { eventId: string }) {
@@ -960,10 +960,12 @@ function Invitations({ eventId }: { eventId: string }) {
     .filter((person) => person.role !== "organizer")
     .sort((a, b) => a.displayName.localeCompare(b.displayName, "fr"));
   const waiting = rows.filter((person) => canResendInvitation(person.status, privates[person.id]?.email ?? ""));
-  async function resendOne(person: { id: string; displayName: string }) {
+  async function resendOne(person: { id: string; displayName: string; status: string }) {
     const accepted = await confirm({
-      title: `Renvoyer l'invitation à ${person.displayName} ?`,
-      description: "Un nouveau message part à l'adresse enregistrée. Le lien précédent ne fonctionne plus.",
+      title: `Renvoyer l'e-mail à ${person.displayName} ?`,
+      description: person.status === "joined"
+        ? "Un nouveau message part à l'adresse enregistrée. Sa participation reste en place. Le lien d'invitation précédent ne fonctionne plus."
+        : "Un nouveau message part à l'adresse enregistrée. Le lien précédent ne fonctionne plus.",
       confirmLabel: "Renvoyer",
     });
     if (!accepted) return;
@@ -981,13 +983,13 @@ function Invitations({ eventId }: { eventId: string }) {
   return (
     <div className="space-y-4">
       <h1 className="font-serif text-4xl">Invitations</h1>
-      <p className="text-sm text-muted">Renvoyez l'e-mail aux personnes qui l'ont perdu ou qui n'ont pas encore accepté. Celles qui ont déjà accepté gardent leur accès : aucun nouveau lien ne leur est envoyé. Cinq renvois au plus par personne et par jour.</p>
+      <p className="text-sm text-muted">Chaque participant qui a une adresse peut recevoir à nouveau l'e-mail, y compris après avoir accepté. La participation déjà enregistrée reste en place. Le lien d'invitation précédent ne fonctionne plus. Cinq renvois au plus par personne et par jour.</p>
       {error ? <ErrorState>{error}</ErrorState> : null}
       <div className="flex flex-wrap gap-2">
         <Button busy={bulk} disabled={waiting.length === 0 || Boolean(sendingId)} onClick={async () => {
           const accepted = await confirm({
-            title: waiting.length > 1 ? `Renvoyer ${waiting.length} invitations ?` : "Renvoyer cette invitation ?",
-            description: "Chaque message part à l'adresse enregistrée. Les liens précédents de ces personnes ne fonctionnent plus.",
+            title: waiting.length > 1 ? `Renvoyer ${waiting.length} e-mails ?` : "Renvoyer cet e-mail ?",
+            description: "Chaque message part à l'adresse enregistrée, y compris pour les personnes qui ont déjà accepté. Leur participation reste en place. Les liens d'invitation précédents ne fonctionnent plus.",
             confirmLabel: "Renvoyer",
           });
           if (!accepted) return;
@@ -1005,7 +1007,7 @@ function Invitations({ eventId }: { eventId: string }) {
           if (failed.length) setError(failed.join(" "));
           const sent = waiting.length - failed.length;
           if (sent > 0) toast(sent > 1 ? `${sent} invitations renvoyées.` : "Invitation renvoyée.");
-        }}>Renvoyer à ceux qui n'ont pas accepté</Button>
+        }}>Renvoyer tous les e-mails</Button>
         <Button variant="secondary" onClick={async () => {
           try {
             const result = await call<{ url: string }>("rotateJoinCode", { eventId });

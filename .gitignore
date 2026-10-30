@@ -10,6 +10,9 @@ logs
 .env
 .env.local
 .env.*.local
+functions/.env.*
+!functions/.env.example
+functions/.rollback-before-play.json
 *.log
 coverage
 .DS_Store

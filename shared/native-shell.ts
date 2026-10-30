@@ -1,13 +1,13 @@
 export type ShellPlatform = "web" | "android";
 export type GoogleSignInPlan = "popup" | "credential-sign-in" | "credential-link" | "credential-reauth";
-export type CheckoutLaunch = "mollie" | "record-only" | "android-unavailable";
+export type CheckoutLaunch = "mollie" | "play" | "record-only";
 
 export const AUTH_PERSISTENCE = "local" as const;
 export const APP_ORIGIN = "https://souspli.fr";
 export const APP_HOST = "souspli.fr";
 
-export const ANDROID_PURCHASE_UNAVAILABLE =
-  "L’achat dans l’application n’est pas encore disponible. Aucun paiement n’est lancé. Les offres déjà confirmées par le serveur restent utilisables. Cette indication est affichée par l’application Android et ne change pas les contrôles du serveur.";
+export const PLAY_PRODUCTS_UNAVAILABLE =
+  "Les produits Google Play sont indisponibles. Aucun paiement n'est lancé. Mollie reste disponible sur le site, pas dans l'application.";
 
 export function googleSignInPlan(input: {
   platform: ShellPlatform;
@@ -26,7 +26,7 @@ export function keepsAnonymousSession(code: string): boolean {
 
 export function checkoutLaunch(platform: ShellPlatform, kind: "included" | "purchase" | "upgrade" | "settled" | "quote" | "blocked"): CheckoutLaunch {
   if (kind === "purchase" || kind === "upgrade") {
-    return platform === "android" ? "android-unavailable" : "mollie";
+    return platform === "android" ? "play" : "mollie";
   }
   return "record-only";
 }

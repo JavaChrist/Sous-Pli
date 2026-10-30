@@ -177,5 +177,11 @@ service cloud.firestore {
     match /quoteRequests/{requestId} {
       allow read, write: if false;
     }
+    match /playPurchases/{purchaseId} {
+      allow read, write: if false;
+    }
+    match /playNotices/{noticeId} {
+      allow read, write: if false;
+    }
   }
 }

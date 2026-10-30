@@ -19,11 +19,12 @@ import {
   type NoticeOutcome,
   type OfferId,
 } from "../../shared/billing";
+import { entitlementFromLedger, ledgerLineFromPayment, type LedgerStatus } from "../../shared/play";
 import { publisher } from "../../shared/publisher";
 import { accessEndInstant } from "../../shared/retention";
 import { serviceTheme } from "../../shared/email/templates";
 import { appConfig } from "../../shared/config";
-import { Timestamp } from "firebase-admin/firestore";
+import { Timestamp, type QueryDocumentSnapshot } from "firebase-admin/firestore";
 import { adminAuth, appOrigin, assertVerifiedIfEmail, callable, consumeRate, db, newId, parse, stamp, userName } from "./admin";
 import { audit } from "./audit";
 import { readMembers, refreshTeamProgress, requireOrganizer } from "./events";
@@ -49,7 +50,10 @@ export const selectOffer = callable(async (request, uid) => {
   if (due.kind === "blocked") throw new HttpsError("failed-precondition", due.message);
   const pending = await db.collection("payments").where("eventId", "==", input.eventId).where("status", "==", "pending").get();
   const batch = db.batch();
-  pending.docs.forEach((doc) => batch.update(doc.ref, { status: "canceled", updatedAt: stamp() }));
+  pending.docs.forEach((doc) => {
+    if (doc.data().provider === "google_play") return;
+    batch.update(doc.ref, { status: "canceled", updatedAt: stamp() });
+  });
   const status = due.kind === "included" ? "included" : due.kind === "settled" ? "paid" : "unpaid";
   batch.update(ref, {
     offerId: input.offerId,
@@ -277,6 +281,9 @@ export const requestWithdrawal = callable(async (request, uid) => {
   }
   await paymentRef.set({ refundState: "requested", withdrawalRequestedAt: stamp(), updatedAt: stamp() }, { merge: true });
   await sendReceipt(String(data.eventId), "withdrawal_requested", data, paymentId);
+  if (data.provider === "google_play") {
+    return { status: "requested", message: "Demande enregistrée. Le remboursement se confirme dans Google Play. Aucune demande n'est envoyée à Mollie." };
+  }
   return { status: "requested", message: "Demande enregistrée. Le remboursement part après traitement par une personne habilitée et confirmation de Mollie." };
 });
 
@@ -287,6 +294,9 @@ export const processWithdrawal = callable(async (request, uid) => {
   const payment = await paymentRef.get();
   if (!payment.exists) throw new HttpsError("not-found", "Cette commande est introuvable.");
   const data = payment.data() ?? {};
+  if (data.provider === "google_play") {
+    throw new HttpsError("failed-precondition", "Un remboursement Google Play ne part pas par Mollie. Les droits changent quand Play confirme l'annulation.");
+  }
   if (!canSubmitRefund(String(data.refundState ?? "none"))) {
     throw new HttpsError("failed-precondition", "Aucun remboursement en double : la demande n'est pas en attente de traitement.");
   }
@@ -421,6 +431,19 @@ async function refreshMolliePayment(providerRef: string) {
   });
 }
 
+function paymentLines(docs: QueryDocumentSnapshot[], override?: { id: string; status: LedgerStatus }) {
+  return docs.flatMap((doc) => {
+    const data = doc.data();
+    const line = ledgerLineFromPayment(doc.id, {
+      status: data.status,
+      offerId: data.offerId,
+      kind: data.kind,
+      createdAtMs: Number(data.createdAtMs ?? data.createdAt?.toMillis?.() ?? 0),
+    }, override && override.id === doc.id ? override.status : undefined);
+    return line ? [line] : [];
+  });
+}
+
 async function applyNotice(input: {
   paymentId: string;
   outcome: NoticeOutcome;
@@ -437,7 +460,10 @@ async function applyNotice(input: {
     const paymentSnap = await tx.get(paymentRef);
     if (!paymentSnap.exists) throw new Error("Commande introuvable");
     const payment = paymentSnap.data() ?? {};
-    const eventRef = db.collection("events").doc(String(payment.eventId));
+    const eventId = String(payment.eventId);
+    const eventRef = db.collection("events").doc(eventId);
+    const eventSnap = await tx.get(eventRef);
+    const siblings = await tx.get(db.collection("payments").where("eventId", "==", eventId));
     const status = String(payment.status);
     if (input.outcome === "succeeded") {
       if (status !== "pending") {
@@ -449,24 +475,27 @@ async function applyNotice(input: {
         tx.update(paymentRef, { status: "failed", updatedAt: stamp() });
         tx.update(eventRef, { commercialStatus: "failed", updatedAt: stamp() });
         tx.set(noticeRef, { paymentId: input.paymentId, outcome: "rejected", at: stamp() });
-        return { email: "payment_failed" as const, payment, eventId: String(payment.eventId) };
+        return { email: "payment_failed" as const, payment, eventId };
       }
-      const paidAmount = payment.kind === "upgrade" ? Number(payment.basePaidCents ?? 0) + Number(payment.amountCents) : Number(payment.amountCents);
       tx.update(paymentRef, { status: "succeeded", providerRef: input.providerRef, confirmedAt: stamp(), updatedAt: stamp() });
+      const entitlement = entitlementFromLedger(paymentLines(siblings.docs, { id: input.paymentId, status: "succeeded" }));
+      const locked = eventSnap.data()?.accessUntilLocked === true;
       tx.update(eventRef, {
-        offerId: payment.offerId,
-        commercialStatus: "paid",
-        paidOfferId: payment.offerId,
-        paidAmountCents: paidAmount,
-        commercialReference: input.paymentId,
-        termsVersion: payment.termsVersion ?? publisher.termsVersion,
-        accessUntil: payment.accessUntil ?? null,
-        accessUntilLocked: true,
-        timeZone: payment.timeZone ?? appConfig.defaultTimeZone,
+        ...(entitlement.paidOfferId ? { offerId: entitlement.paidOfferId } : {}),
+        commercialStatus: entitlement.commercialStatus,
+        paidOfferId: entitlement.paidOfferId,
+        paidAmountCents: entitlement.paidAmountCents,
+        ...(entitlement.activePaymentId ? { commercialReference: entitlement.activePaymentId } : {}),
+        ...(!locked ? {
+          termsVersion: payment.termsVersion ?? publisher.termsVersion,
+          accessUntil: payment.accessUntil ?? null,
+          accessUntilLocked: true,
+          timeZone: payment.timeZone ?? appConfig.defaultTimeZone,
+        } : {}),
         updatedAt: stamp(),
       });
       tx.set(noticeRef, { paymentId: input.paymentId, outcome: "succeeded", at: stamp() });
-      return { email: payment.kind === "upgrade" ? "offer_changed" as const : "payment_confirmed" as const, payment, eventId: String(payment.eventId) };
+      return { email: payment.kind === "upgrade" ? "offer_changed" as const : "payment_confirmed" as const, payment, eventId };
     }
     if (input.outcome === "refunded") {
       if (status !== "succeeded" || !settlementMatches(Number(payment.amountCents), { amountCents: input.amountCents, currency: input.currency })) {
@@ -474,9 +503,16 @@ async function applyNotice(input: {
         return { email: null as null };
       }
       tx.update(paymentRef, { status: "refunded", refundState: "refunded", updatedAt: stamp() });
-      tx.update(eventRef, { commercialStatus: "refunded", paidOfferId: null, paidAmountCents: 0, updatedAt: stamp() });
+      const entitlement = entitlementFromLedger(paymentLines(siblings.docs, { id: input.paymentId, status: "refunded" }));
+      tx.update(eventRef, {
+        ...(entitlement.paidOfferId ? { offerId: entitlement.paidOfferId } : {}),
+        commercialStatus: entitlement.commercialStatus,
+        paidOfferId: entitlement.paidOfferId,
+        paidAmountCents: entitlement.paidAmountCents,
+        updatedAt: stamp(),
+      });
       tx.set(noticeRef, { paymentId: input.paymentId, outcome: "refunded", at: stamp() });
-      return { email: "refund_confirmed" as const, payment, eventId: String(payment.eventId) };
+      return { email: "refund_confirmed" as const, payment, eventId };
     }
     if (status !== "pending") {
       tx.set(noticeRef, { paymentId: input.paymentId, ignored: status, at: stamp() });
@@ -493,7 +529,7 @@ async function applyNotice(input: {
   await sendReceipt(effect.eventId, effect.email, effect.payment as Record<string, unknown>, input.paymentId);
 }
 
-async function sendReceipt(eventId: string, template: "payment_confirmed" | "payment_failed" | "offer_changed" | "refund_confirmed" | "withdrawal_requested", payment: Record<string, unknown>, paymentId: string) {
+export async function sendReceipt(eventId: string, template: "payment_confirmed" | "payment_failed" | "offer_changed" | "refund_confirmed" | "withdrawal_requested", payment: Record<string, unknown>, paymentId: string) {
   const event = await db.collection("events").doc(eventId).get();
   const data = event.data() ?? {};
   const organizerUid = String(payment.organizerUid ?? data.organizerUid ?? "");

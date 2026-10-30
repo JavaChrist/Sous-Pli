@@ -8,6 +8,7 @@ public class MainActivity extends BridgeActivity {
     public void onCreate(Bundle savedInstanceState) {
         registerPlugin(SousPliGooglePlugin.class);
         registerPlugin(SousPliFilesPlugin.class);
+        registerPlugin(SousPliBillingPlugin.class);
         super.onCreate(savedInstanceState);
         if (bridge != null && bridge.getWebView() != null) {
             String header = getString(R.string.vercel_protection_header);
