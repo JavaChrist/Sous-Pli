@@ -47,7 +47,7 @@ export function MentionsDocument() {
       <Section title="Prestataires techniques">
         <p>{processors.firebase}</p>
         <p>E-mails transactionnels : {processors.resend.name}, {processors.resend.address}, {processors.resend.site}. Sans clé d'envoi configurée, les messages sont conservés localement et ne partent pas.</p>
-        <p>Paiement : {processors.mollie.name}, {processors.mollie.address}, registre néerlandais {processors.mollie.register}, {processors.mollie.site}. Les numéros de carte ne sont pas stockés dans Sous pli. Le paiement est encaissé par Mollie.</p>
+        <p>Deux circuits encaissent, selon l'endroit où la commande est ouverte. Navigateur : {processors.mollie.name}, {processors.mollie.address}, registre néerlandais {processors.mollie.register}, {processors.mollie.site}. Application Android : Google Play Billing. Les numéros de carte et les coordonnées bancaires ne sont pas saisis ni stockés dans Sous pli.</p>
       </Section>
       <Section title="Propriété intellectuelle">
         <p>Les textes, la présentation, l'identité visuelle et le code de Sous pli sont protégés dans les conditions de la loi. Sous pli n'est pas présenté comme une marque déposée. Les utilisateurs conservent leurs droits sur leurs contenus. L'usage du service ne transfère aucun droit de propriété intellectuelle.</p>
@@ -71,11 +71,11 @@ export function PrivacyDocument() {
           <li>Compte et authentification : identifiant, nom affiché, e-mail, données de connexion.</li>
           <li>Invitations et inscriptions, y compris lorsqu'un organisateur communique une adresse.</li>
           <li>Événement, groupes, exclusions et attributions.</li>
-          <li>Souhaits, liens HTTPS et photo facultative. La photo n'est visible que par son auteur, l'organisateur et, lorsque l'identité est montrée, la personne qui l'a tirée.</li>
-          <li>Messages et copies associées, signalements et blocages.</li>
+          <li>Souhaits et liens HTTPS. La photo d'un souhait est facultative : elle part seulement si la personne la choisit. Elle n'est conservée que lorsque le stockage l'accepte. Une photo conservée n'est visible que par son auteur, l'organisateur et, lorsque l'identité est montrée, la personne qui l'a tirée.</li>
+          <li>Messages dans l'application, signalements et blocages. Aucun outil ne relit ni ne filtre ces messages.</li>
           <li>Notifications internes.</li>
-          <li>E-mails transactionnels.</li>
-          <li>Commande, montant, référence et état du paiement. Aucune facture numérotée n'est émise. Aucune donnée de carte n'est enregistrée.</li>
+          <li>E-mails du service : destinataire, objet, expéditeur et contenu envoyé. L'organisateur peut enregistrer une introduction, une signature et, sur une offre payée qui l'inclut, l'objet et un logo. Ces éléments sont conservés et repris dans les envois. Le texte d'un message anonyme n'y est pas recopié.</li>
+          <li>Achat lié à un événement : commande, produit, vérification, droit ouvert et remboursement. Le droit payé vaut sur le web et dans l'application Android. Aucune facture numérotée n'est émise. Aucune donnée de carte ni de compte bancaire n'est enregistrée.</li>
           <li>Données techniques et stockage local nécessaires à la connexion et à l'application installable.</li>
         </ul>
         <p>Les champs nécessaires sont indiqués dans les formulaires. Évitez d'y placer des informations sensibles inutiles.</p>
@@ -83,8 +83,8 @@ export function PrivacyDocument() {
       <Section title="3. Qui voit quoi">
         <p>Les participants voient ce que le mode de l'événement leur ouvre : leur résultat, les souhaits utiles à leur cadeau, et la messagerie après tirage ou révélation. En mode classique et double mystère, l'identité affichée est masquée selon le mode. Elle est visible en mode public et après la révélation collective.</p>
         <p>L'organisateur voit les informations utiles à la gestion et au suivi. Il ne dispose pas, à lui seul, d'un droit de lecture des conversations ou des résultats secrets. Les coorganisateurs d'Entreprise Plus ne voient pas les attributions secrètes.</p>
-        <p>Des personnes techniquement habilitées au support, à la sécurité, à la modération ou à une obligation légale peuvent accéder à certaines données, de façon limitée. L'affichage masqué n'est pas un chiffrement de bout en bout et ne promet pas un anonymat absolu : un texte peut permettre de reconnaître une personne.</p>
-        <p>Les messages ne sont pas recopiés dans les notifications ni dans les e-mails d'alerte. Il n'y a pas de pièce jointe dans la messagerie. Le plafond est de vingt messages par dix minutes. Le signalement et le blocage sont disponibles.</p>
+        <p>Des personnes habilitées au support, à la sécurité ou à une obligation légale peuvent accéder à certaines données, de façon limitée. Il n'y a pas de modération automatique des conversations. Le signalement conserve l'identifiant de la conversation et celui de la personne qui signale, puis prévient l'organisateur sans le texte et sans les identités. Le blocage empêche seulement la personne qui l'a activé d'envoyer un nouveau message dans cette conversation. Ces actions ne transmettent pas le message à une équipe pour qu'elle le modère. L'affichage masqué n'est pas un chiffrement de bout en bout et ne promet pas un anonymat absolu : un texte peut permettre de reconnaître une personne.</p>
+        <p>Les messages ne sont pas recopiés dans les notifications ni dans les e-mails d'alerte. Il n'y a pas de pièce jointe dans la messagerie. Le plafond est de vingt messages par dix minutes.</p>
       </Section>
       <Section title="4. Bases">
         <p>L'exécution du service et des mesures précontractuelles, les obligations légales, l'intérêt légitime à la sécurité et à la défense des droits, et le consentement lorsqu'il est requis. L'acceptation des conditions générales n'est pas un consentement général aux traitements ni à la prospection. Aucune prospection n'est déclenchée par une invitation.</p>
@@ -92,12 +92,13 @@ export function PrivacyDocument() {
       <Section title="5. Prestataires et transferts">
         <p>{processors.firebase} L'authentification Firebase est exécutée uniquement depuis des centres situés aux États-Unis. Les fonctions sont prévues en europe-west1. La région de la base et des fichiers est celle du projet. Cela ne signifie pas que toutes les données restent dans l'Union européenne.</p>
         <p>Hébergement de l'application : {hosting.application.name}, {hosting.application.address}. Nom de domaine : {hosting.domain.name}, qui n'héberge pas l'application.</p>
-        <p>E-mails : {processors.resend.name}, {processors.resend.address}. Ce prestataire figure au Data Privacy Framework sous le nom Plus Five Five. Paiement : {processors.mollie.name}, {processors.mollie.address}. Les garanties de transfert sont celles des contrats conclus avec ces prestataires. Aucun outil de mesure d'audience ni notification push du système n'est activé.</p>
+        <p>E-mails : {processors.resend.name}, {processors.resend.address}. Ce prestataire figure au Data Privacy Framework sous le nom Plus Five Five. Il reçoit le destinataire, l'objet et le contenu de l'e-mail, pour l'envoyer. Paiement dans le navigateur : {processors.mollie.name}, {processors.mollie.address}. Paiement dans l'application Android : Google Play Billing. Google reçoit la commande nécessaire à l'encaissement et à la vérification. Sous pli ne lui transmet ni numéro de carte ni coordonnées bancaires. Les garanties de transfert sont celles des contrats conclus avec ces prestataires. Aucun outil de mesure d'audience ni notification push du système n'est activé.</p>
       </Section>
       <Section title="6. Durées">
         <p>L'accès à un événement dure pendant sa préparation et jusqu'à douze mois après sa date, dans le fuseau de l'événement. Un avertissement est prévu trente jours avant la suppression. Un report de date ne repousse pas la fin d'accès déjà fixée. Le maintien du compte ne prolonge pas les messages.</p>
         <p>Le lien d'invitation vaut trente jours. Les données du jeton d'invitation sont supprimées soixante jours après son expiration. Un brouillon sans activité est signalé après cinq mois et supprimé après six mois. Un compte sans connexion est signalé après vingt-quatre mois, puis supprimé après trente jours sans reprise, sauf échange encore organisé par la personne.</p>
-        <p>Les journaux de sécurité sont visés pour six mois. Les contenus d'e-mails et secrets d'envoi sont retirés après l'envoi ; les métadonnées techniques sont visées pour quatre-vingt-dix jours. Les enregistrements de paiement sont conservés à part, pour la durée comptable applicable, et ne sont pas une facture.</p>
+        <p>Les journaux de sécurité sont visés pour six mois. Le corps HTML de l'e-mail et le lien secret d'envoi sont retirés après l'envoi. L'introduction, la signature, l'objet personnalisé et les métadonnées d'envoi peuvent rester : les métadonnées sont visées pour quatre-vingt-dix jours, le thème d'e-mail reste avec l'événement.</p>
+        <p>Les achats sont conservés à part. Pour une commande, Sous pli garde l'événement, l'offre, le montant, la devise, l'état, la référence du prestataire et la version des conditions. Pour Google Play, il garde aussi le produit, le jeton d'achat, son empreinte, l'identifiant opaque du compte, le résultat de la vérification et l'état de consommation. Le droit ouvert sur l'événement comprend l'offre payée, le montant et la fin d'accès. Le remboursement garde son état. Ces pièces servent à exécuter la commande, vérifier l'achat, ouvrir le droit et traiter un remboursement. La règle prévue vise une conservation comptable de dix ans. Aucun traitement ne les efface à cette échéance, et la suppression du compte ne les retire pas. Elles ne sont pas une facture.</p>
         <p>Ces durées décrivent le sort prévu des données. Le traitement planifié fonctionne en simulation tant qu'il n'est pas activé : il liste les éléments arrivés à échéance et ne les supprime pas. Aucun délai de purge des sauvegardes du fournisseur n'est annoncé. Une restauration pourrait réintroduire des données effacées. Après suppression d'un compte d'authentification, Firebase indique retirer les données d'authentification des systèmes actifs et de sauvegarde dans un délai de cent quatre-vingts jours.</p>
       </Section>
       <Section title="7. Suppression de compte">
@@ -110,8 +111,9 @@ export function PrivacyDocument() {
           <li>Persistance de connexion Firebase dans le navigateur, jusqu'à la déconnexion.</li>
           <li>Brouillon d'événement dans le stockage local, retiré à l'enregistrement ou à l'effacement du brouillon.</li>
           <li>Cache de l'application installable, limité aux fichiers statiques et à la page hors ligne.</li>
+          <li>Sauvegarde Android du système, lorsque la personne l'a activée sur son appareil. L'application l'autorise. Elle peut comprendre la session locale. Sous pli n'en fait pas une copie supplémentaire.</li>
         </ul>
-        <p>Les notifications se consultent dans l'application. Les notifications push du système ne sont pas activées.</p>
+        <p>Les notifications se consultent dans l'application. Les notifications push du système ne sont pas activées. Aucun identifiant publicitaire ni identifiant d'installation Firebase n'est collecté par l'application Android.</p>
       </Section>
       <Section title="9. Droits">
         <p>Vous pouvez demander l'accès, la rectification, l'effacement, la limitation, la portabilité et l'opposition aux traitements fondés sur l'intérêt légitime, ainsi que le retrait d'un consentement lorsqu'un traitement en repose sur un. Écrivez à {publisher.email}. Une vérification proportionnée peut être demandée. La réponse intervient en principe dans un mois, prolongeable de deux mois en cas de complexité, avec information dans le premier mois.</p>
@@ -157,16 +159,16 @@ export function TermsDocument() {
             ))}
           </tbody>
         </table>
-        <p>Seul l'organisateur paie. Avant le tirage, le passage d'Entreprise à Entreprise Plus coûte 20 €. La duplication d'un événement ne transfère pas les droits payés. Les fonctions de chaque offre sont celles décrites sur la page Tarifs. Les notifications push du système ne font pas partie des fonctions vendues. La photo d'un souhait reste disponible pour tous.</p>
+        <p>Seul l'organisateur paie. Avant le tirage, le passage d'Entreprise à Entreprise Plus coûte 20 €. La duplication d'un événement ne transfère pas les droits payés. Les fonctions de chaque offre sont celles décrites sur la page Tarifs. Les notifications push du système ne font pas partie des fonctions vendues. La photo d'un souhait n'est pas réservée à une offre payante. Sa visibilité est celle décrite dans la politique de confidentialité.</p>
       </Section>
       <Section title="5. Commande et durée">
-        <p>Le prix, la capacité et la fin d'accès sont fixés par le serveur et rappelés avant la commande, avec la version des conditions. Le retour du navigateur ne débloque pas l'offre. Aucune donnée de carte n'est stockée. Un paiement échoué, annulé ou expiré laisse l'événement en place. Le paiement ne lance pas le tirage.</p>
+        <p>Le prix, la capacité et la fin d'accès sont fixés par le serveur et rappelés avant la commande, avec la version des conditions. Le retour du navigateur ou de l'application ne débloque pas l'offre : le serveur vérifie l'achat. Aucune donnée de carte n'est stockée. Un paiement échoué, annulé ou expiré laisse l'événement en place. Le paiement ne lance pas le tirage.</p>
         <p>L'accès court pendant la préparation et jusqu'à douze mois après la date de l'événement, dans son fuseau. Cette fin est conservée avec la commande. Un report ne la repousse pas. L'archivage n'est pas une conservation illimitée.</p>
-        <p>Le paiement est encaissé par Mollie. {billingPolicy.invoiceNote}</p>
+        <p>Dans le navigateur, le paiement est encaissé par Mollie. Dans l'application Android, il est encaissé par Google Play Billing. Le droit est enregistré sur l'événement et reste utilisable avec le même compte sur le web et dans l'application. {billingPolicy.invoiceNote} Le reçu du circuit utilisé n'est pas non plus une facture de JavaChrist.</p>
       </Section>
       <Section title="6. Rétractation">
         <p>{billingPolicy.withdrawalNote}</p>
-        <p>La demande peut être faite depuis l'espace de la commande ou par e-mail à {publisher.email}, avec la date et la référence. Le délai de quatorze jours part de la confirmation du paiement. Le remboursement est envoyé à Mollie par une personne habilitée, une seule fois pour une même commande, puis confirmé par l'état réel du paiement. Un e-mail part après cette confirmation. Les options payantes de la commande cessent. Les attributions déjà réalisées ne sont pas redistribuées.</p>
+        <p>La demande peut être faite depuis l'espace de la commande ou par e-mail à {publisher.email}, avec la date et la référence. Le délai de quatorze jours part de la confirmation du paiement. Pour un achat Google Play, le remboursement se confirme dans Google Play et aucune demande n'est envoyée à Mollie. Pour un paiement Mollie, le remboursement est envoyé à Mollie par une personne habilitée, une seule fois pour une même commande, puis confirmé par l'état réel du paiement. Un e-mail part après cette confirmation. Les options payantes de la commande cessent. Les attributions déjà réalisées ne sont pas redistribuées.</p>
         <h3 className="font-serif text-xl">Formulaire de rétractation</h3>
         <p>À l'attention de {publisher.editorName}, {publisher.legalForm} — {publisher.tradeName}, {publisher.address} — {publisher.email}.</p>
         <p>Je vous notifie ma rétractation du contrat portant sur l'événement et l'offre suivants :</p>
@@ -224,7 +226,7 @@ export function ProcessingAnnex() {
         <p>Les personnes voient les informations selon le mode choisi. Les personnes habilitées au support et à la sécurité y accèdent de façon limitée. Il n'y a pas de chiffrement de bout en bout ni d'anonymat absolu.</p>
       </Section>
       <Section title="Sous-traitants ultérieurs">
-        <p>{processors.firebase} Hébergement de l'application : {hosting.application.name}. E-mails : {processors.resend.name}. Paiement : {processors.mollie.name}. Le nom de domaine est géré par {hosting.domain.name}, qui n'héberge pas l'application.</p>
+        <p>{processors.firebase} Hébergement de l'application : {hosting.application.name}. E-mails : {processors.resend.name}. Paiement dans le navigateur : {processors.mollie.name}. Paiement dans l'application Android : Google Play Billing. Le nom de domaine est géré par {hosting.domain.name}, qui n'héberge pas l'application.</p>
         <p>L'authentification Firebase est traitée aux États-Unis. Les autres traitements ne sont pas présentés comme exclusivement européens. Les transferts reposent sur les contrats de ces prestataires.</p>
       </Section>
       <Section title="Fin de traitement">
