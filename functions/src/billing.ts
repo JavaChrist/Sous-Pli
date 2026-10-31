@@ -19,6 +19,7 @@ import {
   type NoticeOutcome,
   type OfferId,
 } from "../../shared/billing";
+import { commercialOrderRefusal, playReviewAllows } from "../../shared/demo";
 import { entitlementFromLedger, ledgerLineFromPayment, type LedgerStatus } from "../../shared/play";
 import { publisher } from "../../shared/publisher";
 import { accessEndInstant } from "../../shared/retention";
@@ -39,6 +40,8 @@ const choiceSchema = z.object({
 export const selectOffer = callable(async (request, uid) => {
   const input = parse(choiceSchema, request.data);
   const { ref, data } = await requireOrganizer(input.eventId, uid);
+  const reserved = commercialOrderRefusal(data, Date.now());
+  if (reserved) throw new HttpsError("failed-precondition", reserved);
   if (data.organizerUid !== uid) throw new HttpsError("permission-denied", "Seul l'organisateur qui paie peut choisir l'offre.");
   const mismatch = assertOfferForContext(data.context === "organization" ? "organization" : data.context === "friends" ? "friends" : "family", input.offerId);
   if (mismatch) throw new HttpsError("failed-precondition", mismatch);
@@ -69,6 +72,8 @@ export const createCheckout = callable(async (request, uid) => {
   const eventId = String((request.data as { eventId?: string })?.eventId ?? "");
   const accepted = (request.data as { acceptedTerms?: boolean })?.acceptedTerms === true;
   const { ref, data } = await requireOrganizer(eventId, uid);
+  const reserved = commercialOrderRefusal(data, Date.now());
+  if (reserved) throw new HttpsError("failed-precondition", reserved);
   await assertVerifiedIfEmail(uid);
   if (data.organizerUid !== uid) throw new HttpsError("permission-denied", "Seul l'organisateur paie. Les participants ne règlent rien.");
   const commercial = readCommercial(data);
@@ -231,7 +236,7 @@ export const addCoOrganizer = callable(async (request, uid) => {
   const email = String((request.data as { email?: string })?.email ?? "").trim().toLowerCase();
   const { ref, data } = await requireOrganizer(eventId, uid);
   if (data.organizerUid !== uid) throw new HttpsError("permission-denied", "Seul l'organisateur principal ajoute un coorganisateur.");
-  if (!hasPaidBusinessPlus(data)) {
+  if (!hasPaidBusinessPlus(data) && !playReviewAllows(data, uid, Date.now())) {
     throw new HttpsError("failed-precondition", "Les coorganisateurs font partie d'Entreprise Plus après confirmation du paiement.");
   }
   let account: { uid: string };

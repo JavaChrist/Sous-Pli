@@ -1,6 +1,7 @@
 import type { DocumentData } from "firebase-admin/firestore";
 import { HttpsError } from "firebase-functions/v2/https";
-import { launchBlock, participantCount, readCommercial, rosterDecision } from "../../shared/billing";
+import { participantCount, readCommercial, rosterDecision } from "../../shared/billing";
+import { drawAllowed } from "../../shared/demo";
 import { decideLaunch, type EventStatus, type Exclusion } from "../../shared/domain";
 import { explainDrawFailure, pairsOf, solveDraw } from "../../shared/draw/engine";
 import { mergeExclusions } from "../../shared/draw/prior";
@@ -89,7 +90,7 @@ export const launchDraw = callable(async (request, uid) => {
 
   const members = await readMembers(eventId);
   const commercial = readCommercial(data);
-  const blocked = launchBlock(commercial);
+  const blocked = drawAllowed(data, uid, Date.now());
   if (blocked) throw new HttpsError("failed-precondition", blocked);
   const fit = rosterDecision(participantCount(members), commercial.offerId);
   if (!fit.ok) throw new HttpsError("failed-precondition", fit.message);

@@ -8,4 +8,5 @@ export { listGiftIdeas, addGiftIdea, deleteGiftIdea } from "./ideas";
 export { updatePracticalInfo, duplicateEvent, cancelEvent, archiveEvent, deleteEvent } from "./lifecycle";
 export { selectOffer, createCheckout, getPaymentStatus, simulateProviderNotice, submitQuote, addCoOrganizer, removeCoOrganizer, requestWithdrawal, processWithdrawal, mollieWebhook } from "./billing";
 export { createPlayOrder, submitPlayPurchase, reconcilePlayPurchases, playDeveloperNotification, playConsumeWorker } from "./play";
+export { grantPlayReviewDemo, revokePlayReviewDemo } from "./demo";
 export { retentionWorker, previewRetention } from "./retention";

@@ -1,6 +1,7 @@
 import { Timestamp, type DocumentData } from "firebase-admin/firestore";
 import { HttpsError } from "firebase-functions/v2/https";
 import { assertOfferForContext, defaultOffer, participantCount, readCommercial, rosterDecision, teamProgressAccess } from "../../shared/billing";
+import { playReviewFeatures } from "../../shared/demo";
 import { limits } from "../../shared/config";
 import { canEditRoster, canTransition, type EventStatus, type Exclusion } from "../../shared/domain";
 import { constraintsInputSchema, eventInputSchema, membersInputSchema } from "../../shared/schemas";
@@ -345,7 +346,8 @@ export const setEventStatus = callable(async (request, uid) => {
 export async function refreshTeamProgress(eventId: string) {
   const event = await db.collection("events").doc(eventId).get();
   const summary = db.collection("events").doc(eventId).collection("teamProgress").doc("summary");
-  if (teamProgressAccess(event.data() ?? {}) === "clear") {
+  const stored = event.data() ?? {};
+  if (teamProgressAccess(stored) === "clear" && !playReviewFeatures(stored, Date.now()).teamProgress) {
     await summary.delete();
     return;
   }

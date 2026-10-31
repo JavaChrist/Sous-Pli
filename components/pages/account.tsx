@@ -5,7 +5,7 @@ import { EmailAuthProvider, linkWithCredential, reauthenticateWithCredential } f
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { RequireAuth } from "@/components/require-auth";
-import { signOutClear, useAuth, useSensitive, useToast } from "@/components/providers";
+import { signOutClear, useAuth, useConfirm, useSensitive, useToast } from "@/components/providers";
 import { Button } from "@/components/ui/button";
 import { Field, PasswordInput, TextInput } from "@/components/ui/field";
 import { Modal } from "@/components/ui/modal";
@@ -14,6 +14,11 @@ import { call, errorText } from "@/lib/firebase/api";
 import { getDb, getFirebaseAuth } from "@/lib/firebase/client";
 import { reauthenticateWithGoogle, saveAccountExport } from "@/lib/native/shell";
 import { publisher } from "@shared/publisher";
+
+/** Retirer ce bloc après la validation Google Play. */
+const PLAY_REVIEW_OPERATOR_EMAIL = "contact@javachrist.fr";
+const PLAY_REVIEW_OPERATOR_UID = "tSqIQYy3qFXT1JIImenIwzCI3iz1";
+const PLAY_REVIEW_BENEFICIARY_UID = "hI5hrgOJ54fWsHQcUmPTuWsW7Fv1";
 
 export function NotificationsPage() {
   return <RequireAuth><Notifications /></RequireAuth>;
@@ -58,6 +63,9 @@ export function ProfilePage() {
 function Profile() {
   const { user } = useAuth();
   const toast = useToast();
+  const confirm = useConfirm();
+  const [reviewBusy, setReviewBusy] = useState(false);
+  const [reviewResult, setReviewResult] = useState("");
   const [name, setName] = useState("");
   const editing = useRef(false);
   const savedName = useRef("");
@@ -157,6 +165,42 @@ function Profile() {
         const data = await call("exportMyData");
         await saveAccountExport(JSON.stringify(data, null, 2));
       }}>Exporter mes données</Button>
+      {user?.emailVerified && user.email === PLAY_REVIEW_OPERATOR_EMAIL && user.uid === PLAY_REVIEW_OPERATOR_UID ? (
+        <div className="space-y-2 rounded-3xl border border-line bg-card p-4">
+          <h2 className="font-serif text-2xl">Accès examinateur</h2>
+          <p className="text-sm text-muted">Deux événements fictifs, offre Entreprise Plus, 90 jours. Aucune commande et aucun e-mail. Ce bouton sera retiré après la validation Google Play.</p>
+          <Button
+            type="button"
+            variant="secondary"
+            busy={reviewBusy}
+            onClick={async () => {
+              const accepted = await confirm({
+                title: "Activer l'accès examinateur ?",
+                description: "Les deux événements de démonstration seront créés pour le compte examinateur déjà désigné. Aucune commande Google Play ou Mollie, aucun e-mail.",
+                confirmLabel: "Activer",
+              });
+              if (!accepted) return;
+              setReviewBusy(true);
+              setReviewResult("");
+              try {
+                const result = await call<{ created: boolean }>("grantPlayReviewDemo", { beneficiaryUid: PLAY_REVIEW_BENEFICIARY_UID });
+                const message = result.created
+                  ? "Accès créé. Les deux événements de démonstration sont en place pour 90 jours, sans commande."
+                  : "Accès déjà en place. Aucun événement n'a été réécrit.";
+                setReviewResult(message);
+                toast(message);
+              } catch (caught) {
+                setReviewResult(errorText(caught));
+              } finally {
+                setReviewBusy(false);
+              }
+            }}
+          >
+            Activer l'accès examinateur Google Play
+          </Button>
+          {reviewResult ? <p className="text-sm" role="status">{reviewResult}</p> : null}
+        </div>
+      ) : null}
       <Button variant="danger" onClick={() => { setDeleteConfirm(""); setDeleteError(""); setDeleteOpen(true); }}>Supprimer le compte</Button>
       <p className="text-sm text-muted">
         <Link href="/suppression-compte" className="text-pine underline">Demander la suppression sans l'application</Link>

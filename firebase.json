@@ -11,7 +11,10 @@
       "source": "functions",
       "codebase": "default",
       "runtime": "nodejs22",
-      "predeploy": ["npm --prefix \"$PROJECT_DIR\" run build:functions"],
+      "predeploy": [
+        "node scripts/verify-production-env.mjs",
+        "npm --prefix \"$PROJECT_DIR\" run build:functions"
+      ],
       "ignore": ["node_modules", ".git", "src", "*.md"]
     }
   ],

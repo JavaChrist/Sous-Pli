@@ -8,6 +8,7 @@ import { accessEndInstant } from "../../shared/retention";
 import { appConfig } from "../../shared/config";
 import { publisher } from "../../shared/publisher";
 import { amountDue, assertOfferForContext, participantCount, readCommercial, rosterDecision } from "../../shared/billing";
+import { commercialOrderRefusal } from "../../shared/demo";
 import {
   PLAY_LAUNCH_WINDOW_MS,
   PLAY_PACKAGE_NAME,
@@ -107,6 +108,8 @@ export const createPlayOrder = callable(async (request, uid) => {
   const { ref, data } = await requireOrganizer(input.eventId, uid);
   await assertVerifiedIfEmail(uid);
   if (data.organizerUid !== uid) throw new HttpsError("permission-denied", "Seul l'organisateur paie. Les participants ne règlent rien.");
+  const reserved = commercialOrderRefusal(data, Date.now());
+  if (reserved) throw new HttpsError("failed-precondition", reserved);
   const context = data.context === "organization" ? "organization" : data.context === "friends" ? "friends" : "family";
   const commercial = readCommercial(data);
   const mismatch = assertOfferForContext(context, commercial.offerId);

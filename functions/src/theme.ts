@@ -1,5 +1,6 @@
 import type { DocumentData } from "firebase-admin/firestore";
 import { emailOfferRights, readCommercial } from "../../shared/billing";
+import { playReviewFeatures } from "../../shared/demo";
 import type { EmailTheme } from "../../shared/email/templates";
 import { defaultTheme } from "../../shared/email/templates";
 import type { TemplateVars } from "../../shared/email/render";
@@ -13,14 +14,15 @@ export async function loadTheme(eventId: string, data: DocumentData): Promise<Em
   const stored = (snap.data() ?? {}) as Partial<EmailTheme>;
   const commercial = readCommercial(data);
   const rights = emailOfferRights(commercial.offerId, commercial.status);
+  const review = playReviewFeatures(data, Date.now());
   return {
     ...base,
     ...stored,
     identity: "event",
     context: data.context ?? base.context,
     occasion: data.occasion ?? base.occasion,
-    logoUrl: rights.logo ? String(stored.logoUrl ?? "") : "",
-    subjectOverrides: rights.subjects ? stored.subjectOverrides ?? {} : {},
+    logoUrl: rights.logo || review.mail ? String(stored.logoUrl ?? "") : "",
+    subjectOverrides: rights.subjects || review.mail ? stored.subjectOverrides ?? {} : {},
   };
 }
 

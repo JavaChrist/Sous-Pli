@@ -14,7 +14,8 @@ import { call, errorText } from "@/lib/firebase/api";
 import { getBucket, getDb } from "@/lib/firebase/client";
 import { formatWhen, statusLabel } from "@/lib/format";
 import { eventInputSchema } from "@shared/schemas";
-import { CATALOG, amountDue, asksPayment, defaultOffer, emailOfferRights, hasPaidBusinessPlus, priceLabel, readCommercial } from "@shared/billing";
+import { CATALOG, amountDue, asksPayment, defaultOffer, hasPaidBusinessPlus, priceLabel, readCommercial } from "@shared/billing";
+import { businessPlusFeatures, mailFeatureRights, playReviewAllows } from "@shared/demo";
 import { CoOrganizers, PaymentPrompt, TeamProgress } from "@/components/pages/billing";
 import { CONTEXT_LABELS, JOIN_LABELS, OCCASION_LABELS, PRIVACY_LABELS } from "@shared/domain";
 import { mapTabular } from "@shared/import-table";
@@ -603,9 +604,9 @@ function Dashboard({ eventId }: { eventId: string }) {
         <ButtonLink variant="secondary" className={sectionClass} href={`/participations/${eventId}`}>Mon espace</ButtonLink>
         <ButtonLink variant="secondary" className={sectionClass} href={`/participations/${eventId}/jour-j`}>Jour J</ButtonLink>
       </div>
-      <p className="text-sm text-muted">{CATALOG[commercial.offerId].title} · {commercial.status === "paid" ? "payée" : commercial.status === "included" ? "incluse" : commercial.status === "pending" ? "confirmation du paiement en cours" : "paiement non confirmé"}</p>
-      {hasPaidBusinessPlus(event) ? <TeamProgress eventId={eventId} /> : null}
-      {hasPaidBusinessPlus(event) && event.organizerUid === user?.uid ? <CoOrganizers eventId={eventId} /> : null}
+      <p className="text-sm text-muted">{CATALOG[commercial.offerId].title} · {playReviewAllows(event, user?.uid ?? "", Date.now()) && !hasPaidBusinessPlus(event) ? "démonstration Google Play, sans commande" : commercial.status === "paid" ? "payée" : commercial.status === "included" ? "incluse" : commercial.status === "pending" ? "confirmation du paiement en cours" : "paiement non confirmé"}</p>
+      {businessPlusFeatures(event, user?.uid ?? "", Date.now()) ? <TeamProgress eventId={eventId} /> : null}
+      {businessPlusFeatures(event, user?.uid ?? "", Date.now()) && event.organizerUid === user?.uid ? <CoOrganizers eventId={eventId} /> : null}
       {error ? <p className="text-sm text-burgundy">{error}</p> : null}
       {info ? <p className="text-sm text-pine">{info}</p> : null}
       <div className="flex flex-wrap gap-2">
@@ -1056,6 +1057,7 @@ const MAIL_LABELS: Record<string, string> = {
 };
 
 function MailTheme({ eventId }: { eventId: string }) {
+  const { user } = useAuth();
   const [tone, setTone] = useState<"tu" | "vous">("tu");
   const [palette, setPalette] = useState<PaletteId>("sapin");
   const [intro, setIntro] = useState("");
@@ -1073,10 +1075,9 @@ function MailTheme({ eventId }: { eventId: string }) {
   useEffect(() => {
     const unsubEvent = onSnapshot(doc(getDb(), "events", eventId), (snap) => {
       const data = snap.data() ?? {};
-      const commercial = readCommercial(data);
       setContext(data.context === "friends" || data.context === "organization" ? data.context : "family");
       setOccasion(data.occasion === "christmas" || data.occasion === "annual" ? data.occasion : "other");
-      setRights(emailOfferRights(commercial.offerId, commercial.status));
+      setRights(mailFeatureRights(data, user?.uid ?? "", Date.now()));
       setReady(true);
     }, (caught) => setError(errorText(caught)));
     const unsubTheme = onSnapshot(doc(getDb(), "events", eventId, "emailTheme", "current"), (snap) => {
@@ -1093,7 +1094,7 @@ function MailTheme({ eventId }: { eventId: string }) {
       unsubEvent();
       unsubTheme();
     };
-  }, [eventId]);
+  }, [eventId, user?.uid]);
   const defaults = templateCopy(context, tone);
   function currentTheme() {
     return {

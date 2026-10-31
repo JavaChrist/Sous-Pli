@@ -1,6 +1,6 @@
 import { HttpsError } from "firebase-functions/v2/https";
 import { limits } from "../../shared/config";
-import { emailOfferRights, readCommercial } from "../../shared/billing";
+import { mailFeatureRights } from "../../shared/demo";
 import { isBrandLogoUrl } from "../../shared/email/brand";
 import { emailThemeSchema, messageSchema, wishlistSchema } from "../../shared/schemas";
 import { PREVIEW_VARS, renderEmail } from "../../shared/email/render";
@@ -204,8 +204,7 @@ export const saveEmailTheme = callable(async (request, uid) => {
   const input = emailThemeSchema.safeParse(request.data);
   if (!input.success) throw new HttpsError("invalid-argument", input.error.issues[0]?.message ?? "Thème invalide.");
   const { data } = await requireOrganizer(input.data.eventId, uid);
-  const commercial = readCommercial(data);
-  const rights = emailOfferRights(commercial.offerId, commercial.status);
+  const rights = mailFeatureRights(data, uid, Date.now());
   const buckets = [process.env.STORAGE_BUCKET || "sous-pli-local.appspot.com"];
   if (input.data.logoUrl && (!rights.logo || !isBrandLogoUrl(input.data.logoUrl, input.data.eventId, buckets, localLinksAllowed()))) {
     throw new HttpsError("permission-denied", "Le logo est réservé à une offre payée qui l'inclut, et seulement pour l'image de marque de cet événement.");
