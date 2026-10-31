@@ -31,7 +31,7 @@ export function Shell({ children, deploymentVersion }: { children: ReactNode; de
       <header className="safe-top sticky top-0 z-40 border-b border-line/80 bg-cream/90 backdrop-blur">
         <div className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-4 py-3">
           <Link href="/" className="flex items-center gap-3">
-            <img src="/favicon.svg" alt="" width={44} height={44} className="h-11 w-11 rounded-xl" />
+            <img src="/apple-touch-icon.png" alt="" width={44} height={44} className="h-11 w-11 rounded-xl" />
             <span className="font-serif text-2xl leading-none text-pine-deep">{appConfig.name}</span>
           </Link>
           <nav className="hidden items-center gap-1 md:flex" aria-label="Navigation principale">
@@ -79,6 +79,9 @@ export function Shell({ children, deploymentVersion }: { children: ReactNode; de
           ) : null}
           {children}
           <footer className="mt-10 flex flex-wrap gap-4 border-t border-line pt-6 text-sm text-muted">
+            <Link href="/famille">Famille</Link>
+            <Link href="/association">Association</Link>
+            <Link href="/entreprise">Entreprise</Link>
             <Link href="/aide">Aide</Link>
             <Link href="/contact">Contact</Link>
             <Link href="/tarifs">Tarifs</Link>

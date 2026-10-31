@@ -40,6 +40,13 @@ export function PricingPage() {
       <header className="max-w-3xl space-y-3">
         <h1 className="font-serif text-4xl text-pine-deep">Tarifs</h1>
         <p className="text-lg text-ink">{billingPolicy.promise}</p>
+        <p className="text-sm">
+          <Link href="/famille" className="text-pine underline">Secret Santa en famille</Link>
+          {" · "}
+          <Link href="/association" className="text-pine underline">Association</Link>
+          {" · "}
+          <Link href="/entreprise" className="text-pine underline">Collègues</Link>
+        </p>
         <p className="text-sm text-muted">{billingPolicy.taxNote}</p>
         <p className="text-sm text-muted">{billingPolicy.preservedNote}</p>
       </header>
@@ -395,10 +402,10 @@ export function TeamProgress({ eventId }: { eventId: string }) {
 
 export function CoOrganizers({ eventId }: { eventId: string }) {
   const [email, setEmail] = useState("");
-  const [rows, setRows] = useState<Array<{ id: string; email?: string }>>([]);
+  const [rows, setRows] = useState<Array<{ id: string; email?: string; displayName?: string }>>([]);
   const [error, setError] = useState("");
   useEffect(() => onSnapshot(collection(getDb(), "events", eventId, "coOrganizers"), (snap) => {
-    setRows(snap.docs.map((item) => ({ id: item.id, email: String(item.data().email ?? "") })));
+    setRows(snap.docs.map((item) => ({ id: item.id, email: String(item.data().email ?? ""), displayName: String(item.data().displayName ?? "") })));
   }), [eventId]);
   return (
     <section className="space-y-3 rounded-3xl border border-line bg-card p-5">
@@ -418,7 +425,7 @@ export function CoOrganizers({ eventId }: { eventId: string }) {
       <ul className="space-y-2 text-sm">
         {rows.map((row) => (
           <li key={row.id} className="flex items-center justify-between gap-3">
-            <span>{row.email}</span>
+            <span>{row.displayName || row.email}</span>
             <Button type="button" variant="danger" onClick={() => void call("removeCoOrganizer", { eventId, uid: row.id })}>Retirer</Button>
           </li>
         ))}

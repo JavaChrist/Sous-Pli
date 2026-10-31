@@ -2,10 +2,28 @@
 
 import { appConfig } from "@shared/config";
 import { Gift, Mail, ShieldCheck, Users } from "lucide-react";
+import Image from "next/image";
+import Link from "next/link";
 import { useState } from "react";
+import { FaqJsonLd } from "@/components/seo-jsonld";
 import { Button, ButtonLink } from "@/components/ui/button";
 import { Field, TextArea, TextInput } from "@/components/ui/field";
 import { call, errorText } from "@/lib/firebase/api";
+
+const homeFaq = [
+  {
+    q: "Le Secret Santa familial est-il gratuit ?",
+    a: "Oui. L'offre Famille & amis coûte 0 €, pour un événement, jusqu'à 50 participants. Les invités ne paient jamais.",
+  },
+  {
+    q: "Où se lit le résultat du tirage au sort ?",
+    a: "Dans l'espace protégé. Les e-mails, les aperçus de liens et les notifications ne contiennent pas le nom du destinataire.",
+  },
+  {
+    q: "Peut-on organiser l'échange au travail ou dans une association ?",
+    a: "Oui. L'association coûte 9,90 € jusqu'à 100 personnes. L'entreprise coûte 19,90 € jusqu'à 100 collègues, et Entreprise Plus 39,90 € jusqu'à 300. Au-delà, c'est un devis, sans débit automatique.",
+  },
+];
 
 export function HomePage() {
   return (
@@ -13,14 +31,19 @@ export function HomePage() {
       <section className="grid items-center gap-10 lg:grid-cols-[1.1fr_0.9fr]">
         <div>
           <p className="text-sm font-semibold uppercase tracking-[0.18em] text-gold">Échange secret</p>
-          <h1 className="mt-3 font-serif text-5xl leading-tight text-pine-deep md:text-6xl">{appConfig.name}</h1>
-          <p className="mt-4 max-w-xl text-lg text-muted">{appConfig.description}</p>
+          <h1 className="mt-3 font-serif text-5xl leading-tight text-pine-deep md:text-6xl">Organisez le tirage au sort de Noël</h1>
+          <p className="mt-4 max-w-xl text-lg text-muted">Secret Santa gratuit en famille, ou échange de cadeaux pour une association et des collègues. Chacun découvre son destinataire sous pli.</p>
           <div className="mt-6 flex flex-wrap gap-3">
             <ButtonLink href="/evenements/nouveau">Préparer un échange</ButtonLink>
-            <ButtonLink variant="secondary" href="/aide">Comment ça marche</ButtonLink>
+            <ButtonLink variant="secondary" href="/tarifs">Voir les tarifs</ButtonLink>
           </div>
+          <p className="mt-4 flex flex-wrap gap-x-4 gap-y-2 text-sm">
+            <Link href="/famille" className="text-pine underline">En famille</Link>
+            <Link href="/association" className="text-pine underline">En association</Link>
+            <Link href="/entreprise" className="text-pine underline">Entre collègues</Link>
+          </p>
         </div>
-        <img src="/logo512.png" alt="Enveloppe cachetée, cadeau bordeaux et ruban doré, Sous pli" className="mx-auto w-full max-w-md rounded-[2rem]" />
+        <Image src="/logo512.png" alt="Enveloppe cachetée, cadeau bordeaux et ruban doré, Sous pli" width={512} height={512} priority className="mx-auto h-auto w-full max-w-md rounded-[2rem]" />
       </section>
       <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         {[
@@ -54,6 +77,16 @@ export function HomePage() {
         <h2 className="mt-3 font-serif text-3xl">Le résultat se consulte sous pli</h2>
         <p className="mt-2 max-w-2xl text-white/80">Aucun nom tiré au sort dans les e-mails, les aperçus de liens ou les notifications. La révélation collective attend votre geste, à l'heure prévue dans le fuseau de l'échange.</p>
       </section>
+      <section className="space-y-3">
+        <h2 className="font-serif text-3xl text-pine-deep">Questions fréquentes</h2>
+        {homeFaq.map((item) => (
+          <section key={item.q} className="rounded-3xl border border-line bg-card p-5">
+            <h3 className="font-serif text-xl">{item.q}</h3>
+            <p className="mt-2 text-sm text-muted">{item.a}</p>
+          </section>
+        ))}
+      </section>
+      <FaqJsonLd items={homeFaq} />
     </div>
   );
 }
@@ -65,6 +98,7 @@ export function HelpPage() {
     ["Un enfant peut-il participer ?", "Oui, via un adulte responsable. Cet adulte peut connaître le tirage de l'enfant : ce n'est pas un secret vis-à-vis de lui."],
     ["Que se passe-t-il si le tirage est impossible ?", "Rien n'est publié. L'organisateur reçoit une explication, par exemple une personne qui n'a plus assez de destinataires possibles."],
     ["Les e-mails contiennent-ils le destinataire ?", "Non. Le résultat se lit après connexion, dans l'espace protégé."],
+    ["Où préparer un Secret Santa selon le groupe ?", "La famille utilise l'offre gratuite. Une association ou des collègues choisissent l'offre correspondante sur la page Tarifs. Le détail est sur les pages Famille, Association et Entreprise."],
   ];
   return (
     <article className="mx-auto max-w-3xl space-y-6">
@@ -75,6 +109,7 @@ export function HelpPage() {
           <p className="mt-2 text-sm text-muted">{text}</p>
         </section>
       ))}
+      <FaqJsonLd items={questions.map(([q, a]) => ({ q, a }))} />
     </article>
   );
 }
